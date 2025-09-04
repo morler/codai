@@ -6,15 +6,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
+)
+
+// gitignoreCacheEntry holds cached gitignore patterns with metadata
+type gitignoreCacheEntry struct {
+	patterns []string
+	modTime  time.Time
+}
+
+// Global cache for gitignore patterns
+var (
+	gitignoreCache = make(map[string]*gitignoreCacheEntry)
+	cacheMutex     sync.RWMutex
 )
 
 // GetGitignorePatterns reads and returns the patterns from the .gitignore file.
 // If the file does not exist, it returns an empty pattern list.
+// This function now supports caching for improved performance.
 func GetGitignorePatterns(cwd string) ([]string, error) {
 	gitignorePath := filepath.Join(cwd, ".codai-gitignore")
 
 	// Check if the .gitignore file exists
-	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+	fileInfo, err := os.Stat(gitignorePath)
+	if os.IsNotExist(err) {
 		// .gitignore doesn't exist, return an empty slice
 		return []string{}, nil
 	} else if err != nil {
@@ -22,7 +38,18 @@ func GetGitignorePatterns(cwd string) ([]string, error) {
 		return nil, fmt.Errorf("error checking .codai-gitignore: %w", err)
 	}
 
-	// Read and parse the .gitignore file if it exists
+	// Check cache first
+	cacheMutex.RLock()
+	if cached, exists := gitignoreCache[gitignorePath]; exists {
+		// Check if file has been modified since cache
+		if fileInfo.ModTime().Equal(cached.modTime) {
+			cacheMutex.RUnlock()
+			return cached.patterns, nil
+		}
+	}
+	cacheMutex.RUnlock()
+
+	// Read and parse the .gitignore file if it exists or cache is invalid
 	ignorePatterns, err := readGitignore(gitignorePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .codai-gitignore: %w", err)
@@ -35,6 +62,14 @@ func GetGitignorePatterns(cwd string) ([]string, error) {
 			validPatterns = append(validPatterns, pattern)
 		}
 	}
+
+	// Update cache
+	cacheMutex.Lock()
+	gitignoreCache[gitignorePath] = &gitignoreCacheEntry{
+		patterns: validPatterns,
+		modTime:  fileInfo.ModTime(),
+	}
+	cacheMutex.Unlock()
 
 	return validPatterns, nil
 }
@@ -132,4 +167,27 @@ func IsGitIgnored(path string, patterns []string) bool {
 		}
 	}
 	return false
+}
+
+// ClearGitignoreCache clears all cached gitignore patterns
+func ClearGitignoreCache() {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	gitignoreCache = make(map[string]*gitignoreCacheEntry)
+}
+
+// GetGitignoreCacheStats returns statistics about the gitignore cache
+func GetGitignoreCacheStats() map[string]interface{} {
+	cacheMutex.RLock()
+	defer cacheMutex.RUnlock()
+	
+	stats := make(map[string]interface{})
+	stats["cached_files"] = len(gitignoreCache)
+	stats["cache_entries"] = make([]string, 0, len(gitignoreCache))
+	
+	for path := range gitignoreCache {
+		stats["cache_entries"] = append(stats["cache_entries"].([]string), path)
+	}
+	
+	return stats
 }

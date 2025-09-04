@@ -25,7 +25,8 @@ import (
 
 // CodeAnalyzer handles the analysis of project files.
 type CodeAnalyzer struct {
-	Cwd string
+	Cwd          string
+	cacheManager *CacheManager
 }
 
 func (analyzer *CodeAnalyzer) GeneratePrompt(codes []string, history []string, userInput string, requestedContext string) (string, string) {
@@ -50,10 +51,30 @@ func (analyzer *CodeAnalyzer) GeneratePrompt(codes []string, history []string, u
 
 // NewCodeAnalyzer initializes a new CodeAnalyzer.
 func NewCodeAnalyzer(cwd string) contracts.ICodeAnalyzer {
-	return &CodeAnalyzer{Cwd: cwd}
+	// Initialize cache manager
+	cacheManager, err := NewCacheManager("")
+	if err != nil {
+		// Fallback to no caching if cache initialization fails
+		log.Printf("Warning: Failed to initialize cache manager: %v", err)
+		cacheManager = nil
+	}
+
+	return &CodeAnalyzer{
+		Cwd:          cwd,
+		cacheManager: cacheManager,
+	}
 }
 
 func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullContextData, error) {
+	// Check cache first if cache manager is available
+	if analyzer.cacheManager != nil {
+		// Generate cache key based on root directory
+		projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+		if cachedData, found := analyzer.cacheManager.GetConfigCache(projectCacheKey); found {
+			return cachedData, nil
+		}
+	}
+
 	var result models.FullContextData
 
 	// Retrieve the ignore patterns from .gitignore, if it exists
@@ -100,13 +121,44 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 				return nil // Skip this file
 			}
 
-			// Read the file content using the full path
-			content, err := ioutil.ReadFile(path) // Use full path from WalkDir
-			if err != nil {
-				return fmt.Errorf("failed to read file: %s, error: %w", relativePath, err)
+			// Try to get cached file content first
+			var content []byte
+			if analyzer.cacheManager != nil {
+				if cachedContent, found := analyzer.cacheManager.GetFileContentCache(path); found {
+					content = cachedContent
+				}
 			}
 
-			codeParts := analyzer.ProcessFile(relativePath, content)
+			// Read file content if not cached
+			if content == nil {
+				content, err = ioutil.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("failed to read file: %s, error: %w", relativePath, err)
+				}
+
+				// Cache the file content if cache manager is available
+				if analyzer.cacheManager != nil {
+					analyzer.cacheManager.SetFileContentCache(path, content)
+				}
+			}
+
+			// Try to get cached tree-sitter results
+			var codeParts []string
+			if analyzer.cacheManager != nil {
+				if cachedParts, found := analyzer.cacheManager.GetTreeSitterCache(path); found {
+					codeParts = cachedParts
+				}
+			}
+
+			// Process file if not cached
+			if codeParts == nil {
+				codeParts = analyzer.ProcessFile(relativePath, content)
+
+				// Cache the tree-sitter results if cache manager is available
+				if analyzer.cacheManager != nil {
+					analyzer.cacheManager.SetTreeSitterCache(path, codeParts)
+				}
+			}
 
 			// Append the file data to the result
 			result.FileData = append(result.FileData, models.FileData{RelativePath: relativePath, Code: string(content), TreeSitterCode: strings.Join(codeParts, "\n")})
@@ -119,6 +171,12 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Cache the complete project scan results
+	if analyzer.cacheManager != nil {
+		projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+		analyzer.cacheManager.SetConfigCache(projectCacheKey, &result)
 	}
 
 	return &result, nil

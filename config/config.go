@@ -8,6 +8,20 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"strings"
+	"sync"
+	"time"
+)
+
+// configCacheEntry holds cached configuration with metadata
+type configCacheEntry struct {
+	config  *Config
+	modTime time.Time
+}
+
+// Global cache for configuration files
+var (
+	configCache = make(map[string]*configCacheEntry)
+	cacheMutex  sync.RWMutex
 )
 
 // Config represents the structure of the configuration file
@@ -159,4 +173,93 @@ func GetConfigFileType(filename string) string {
 		return "yaml"
 	}
 	return ""
+}
+
+// LoadConfigWithCache loads configuration with caching support
+func LoadConfigWithCache(rootCmd *cobra.Command, cwd string) *Config {
+	var configFilePath string
+	
+	// Determine config file path
+	if cfgFile != "" {
+		configFilePath = cfgFile
+	} else {
+		// Check for default config files
+		yamlPath := fmt.Sprintf("%s/codai-config.yaml", cwd)
+		ymlPath := fmt.Sprintf("%s/codai-config.yml", cwd)
+		jsonPath := fmt.Sprintf("%s/codai-config.json", cwd)
+		
+		if _, err := os.Stat(yamlPath); err == nil {
+			configFilePath = yamlPath
+		} else if _, err := os.Stat(ymlPath); err == nil {
+			configFilePath = ymlPath
+		} else if _, err := os.Stat(jsonPath); err == nil {
+			configFilePath = jsonPath
+		}
+	}
+
+	// If no config file exists, return default configuration loading
+	if configFilePath == "" {
+		return LoadConfigs(rootCmd, cwd)
+	}
+
+	// Check file modification time
+	fileInfo, err := os.Stat(configFilePath)
+	if err != nil {
+		// File doesn't exist or error, fallback to regular loading
+		return LoadConfigs(rootCmd, cwd)
+	}
+
+	// Check cache first
+	cacheMutex.RLock()
+	if cached, exists := configCache[configFilePath]; exists {
+		// Check if file has been modified since cache
+		if fileInfo.ModTime().Equal(cached.modTime) {
+			cacheMutex.RUnlock()
+			return cached.config
+		}
+	}
+	cacheMutex.RUnlock()
+
+	// Load configuration normally
+	config := LoadConfigs(rootCmd, cwd)
+
+	// Update cache
+	cacheMutex.Lock()
+	configCache[configFilePath] = &configCacheEntry{
+		config:  config,
+		modTime: fileInfo.ModTime(),
+	}
+	cacheMutex.Unlock()
+
+	return config
+}
+
+// ClearConfigCache clears all cached configuration files
+func ClearConfigCache() {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	configCache = make(map[string]*configCacheEntry)
+}
+
+// GetConfigCacheStats returns statistics about the configuration cache
+func GetConfigCacheStats() map[string]interface{} {
+	cacheMutex.RLock()
+	defer cacheMutex.RUnlock()
+	
+	stats := make(map[string]interface{})
+	stats["cached_files"] = len(configCache)
+	stats["cache_entries"] = make([]string, 0, len(configCache))
+	
+	for path := range configCache {
+		stats["cache_entries"] = append(stats["cache_entries"].([]string), path)
+	}
+	
+	return stats
+}
+
+// InvalidateConfigCache removes a specific config file from cache
+func InvalidateConfigCache(configPath string) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	delete(configCache, configPath)
 }
