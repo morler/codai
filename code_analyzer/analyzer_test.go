@@ -22,18 +22,21 @@ func setup(t *testing.T) {
 	rootDir, err := os.Getwd()
 	assert.NoError(t, err)
 
-	testDir := t.TempDir() // Create a temporary directory
-	relativePathTestDir, err = filepath.Rel(rootDir, testDir)
-
-	if filepath.IsAbs(relativePathTestDir) {
-		t.Fatalf("relativeTestDir should be relative, but got an absolute path: %s", relativePathTestDir)
-	}
+	// Create temporary directory within current working directory to avoid cross-platform issues
+	testDirName := fmt.Sprintf("test_temp_%d", os.Getpid())
+	testDir := filepath.Join(rootDir, testDirName)
+	
+	// Create the test directory
+	err = os.MkdirAll(testDir, 0755)
+	assert.NoError(t, err)
+	
+	relativePathTestDir = testDirName
 
 	analyzer = NewCodeAnalyzer(relativePathTestDir)
 
 	// Register cleanup to remove everything inside relativePathTestDir
 	t.Cleanup(func() {
-		err := os.RemoveAll(relativePathTestDir)
+		err := os.RemoveAll(testDir)
 		assert.NoError(t, err, "failed to remove test directory")
 	})
 }

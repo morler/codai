@@ -38,3 +38,7 @@ config.yml
 
 # Assets
 /assets/
+
+# Temporary build directories
+temp_go_build/
+test_temp_*/
