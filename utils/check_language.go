@@ -50,6 +50,10 @@ func GetSupportedLanguage(path string) string {
 		return "python"
 	case strings.HasSuffix(path, ".java"):
 		return "java"
+	case strings.HasSuffix(path, ".rs"):
+		return "rust"
+	case strings.HasSuffix(path, ".zig"):
+		return "zig"
 	default:
 		return "" // Return empty string if no match
 	}

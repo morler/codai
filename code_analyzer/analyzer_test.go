@@ -81,6 +81,8 @@ func TestRunInSequence(t *testing.T) {
 	t.Run("TestExtractCodeChangesWithMultipleCodeBlocksSameFile", TestExtractCodeChangesWithMultipleCodeBlocksSameFile)
 	t.Run("TestTryGetInCompletedCodeBlock", TestTryGetInCompletedCodeBlock)
 	t.Run("TestTryGetInCompletedCodeBlockWithAdditionalCharacters", TestTryGetInCompletedCodeBlockWithAdditionalsCharacters)
+	t.Run("TestProcessRustFile", TestProcessRustFile)
+	t.Run("TestProcessZigFile", TestProcessZigFile)
 }
 
 func TestGeneratePrompt(t *testing.T) {
@@ -519,4 +521,139 @@ func TestTryGetInCompletedCodeBlockWithAdditionalsCharacters(t *testing.T) {
 	assert.NotEmpty(t, requestedContext)
 	assert.Contains(t, requestedContext, "package main\nfunc main() {}")
 	assert.Contains(t, requestedContext, "package test\nfunc test() {}")
+}
+
+// Test for ProcessFile with Rust
+func TestProcessRustFile(t *testing.T) {
+	setup(t) // setup before the first test runs
+
+	rustCode := `use std::collections::HashMap;
+
+pub struct User {
+    id: u32,
+    name: String,
+}
+
+pub enum Status {
+    Active,
+    Inactive,
+}
+
+pub trait Validate {
+    fn is_valid(&self) -> bool;
+}
+
+impl User {
+    pub fn new(id: u32, name: String) -> Self {
+        User { id, name }
+    }
+}
+
+impl Validate for User {
+    fn is_valid(&self) -> bool {
+        !self.name.is_empty()
+    }
+}
+
+pub fn main() {
+    let user = User::new(1, "Test User".to_string());
+    println!("User valid: {}", user.is_valid());
+}
+
+pub const MAX_USERS: usize = 1000;
+pub static GLOBAL_CONFIG: &str = "production";
+
+pub mod utils {
+    pub fn helper() {}
+}`
+
+	elements := analyzer.ProcessFile("test.rs", []byte(rustCode))
+
+	// Assertions
+	assert.NotEmpty(t, elements)
+	assert.Greater(t, len(elements), 1)
+	
+	// Check that various Rust constructs are detected
+	elementsStr := strings.Join(elements, "\n")
+	assert.Contains(t, elementsStr, "struct: User")
+	assert.Contains(t, elementsStr, "enum: Status")
+	assert.Contains(t, elementsStr, "trait: Validate")
+	assert.Contains(t, elementsStr, "function: new")
+	assert.Contains(t, elementsStr, "function: is_valid")
+	assert.Contains(t, elementsStr, "function: main")
+	assert.Contains(t, elementsStr, "const: MAX_USERS")
+	assert.Contains(t, elementsStr, "static: GLOBAL_CONFIG")
+	assert.Contains(t, elementsStr, "mod: utils")
+	assert.Contains(t, elementsStr, "impl: User")
+}
+
+// Test for ProcessFile with Zig
+func TestProcessZigFile(t *testing.T) {
+	setup(t) // setup before the first test runs
+
+	zigCode := `const std = @import("std");
+const print = std.debug.print;
+
+pub const User = struct {
+    id: u32,
+    name: []const u8,
+    
+    pub fn init(id: u32, name: []const u8) User {
+        return User{
+            .id = id,
+            .name = name,
+        };
+    }
+    
+    pub fn isValid(self: User) bool {
+        return self.name.len > 0;
+    }
+};
+
+pub const Status = enum {
+    active,
+    inactive,
+};
+
+pub const Config = union(enum) {
+    production: []const u8,
+    development: bool,
+};
+
+pub var global_counter: u32 = 0;
+pub const MAX_USERS: u32 = 1000;
+
+pub fn main() !void {
+    const user = User.init(1, "Test User");
+    print("User valid: {}\n", .{user.isValid()});
+}
+
+test "user creation" {
+    const user = User.init(1, "Test");
+    try std.testing.expect(user.isValid());
+}
+
+test "empty name validation" {
+    const user = User.init(2, "");
+    try std.testing.expect(!user.isValid());
+}`
+
+	elements := analyzer.ProcessFile("test.zig", []byte(zigCode))
+
+	// Assertions
+	assert.NotEmpty(t, elements)
+	assert.Greater(t, len(elements), 1)
+	
+	// Check that various Zig constructs are detected
+	elementsStr := strings.Join(elements, "\n")
+	assert.Contains(t, elementsStr, "struct: User")
+	assert.Contains(t, elementsStr, "enum: Status")
+	assert.Contains(t, elementsStr, "union: Config")
+	assert.Contains(t, elementsStr, "function: init")
+	assert.Contains(t, elementsStr, "function: isValid")
+	assert.Contains(t, elementsStr, "function: main")
+	assert.Contains(t, elementsStr, "var: global_counter")
+	assert.Contains(t, elementsStr, "const: MAX_USERS")
+	assert.Contains(t, elementsStr, "test: user creation")
+	assert.Contains(t, elementsStr, "test: empty name validation")
 }

@@ -219,6 +219,18 @@ func (analyzer *CodeAnalyzer) ProcessFile(filePath string, sourceCode []byte) []
 		parser.SetLanguage(typescript.GetLanguage())
 		lang = typescript.GetLanguage()
 		query = embed_data.TypescriptQuery
+	case "rust":
+		// Rust support pending tree-sitter bindings availability
+		// For now, process as plain text with basic structure analysis
+		elements = append(elements, filePath)
+		elements = append(elements, analyzer.extractRustStructure(string(sourceCode)))
+		return elements
+	case "zig":
+		// Zig support pending tree-sitter bindings availability  
+		// For now, process as plain text with basic structure analysis
+		elements = append(elements, filePath)
+		elements = append(elements, analyzer.extractZigStructure(string(sourceCode)))
+		return elements
 	default:
 		// If the language doesn't match, process the original source code directly
 		elements = append(elements, filePath)
@@ -463,4 +475,77 @@ func removeEmptyDirectoryIfNeeded(dir string) error {
 		}
 	}
 	return nil
+}
+
+// extractRustStructure extracts basic Rust code structure using regex patterns
+func (analyzer *CodeAnalyzer) extractRustStructure(sourceCode string) string {
+	var elements []string
+	lines := strings.Split(sourceCode, "\n")
+	
+	// Rust patterns
+	fnRegex := regexp.MustCompile(`^\s*(?:pub\s+)?fn\s+(\w+)`)
+	structRegex := regexp.MustCompile(`^\s*(?:pub\s+)?struct\s+(\w+)`)
+	enumRegex := regexp.MustCompile(`^\s*(?:pub\s+)?enum\s+(\w+)`)
+	traitRegex := regexp.MustCompile(`^\s*(?:pub\s+)?trait\s+(\w+)`)
+	implRegex := regexp.MustCompile(`^\s*impl(?:\s*<[^>]*>)?\s+(?:\w+\s+for\s+)?(\w+)`)
+	modRegex := regexp.MustCompile(`^\s*(?:pub\s+)?mod\s+(\w+)`)
+	constRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)`)
+	staticRegex := regexp.MustCompile(`^\s*(?:pub\s+)?static\s+(\w+)`)
+	
+	for _, line := range lines {
+		if matches := fnRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("function: %s", matches[1]))
+		} else if matches := structRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("struct: %s", matches[1]))
+		} else if matches := enumRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("enum: %s", matches[1]))
+		} else if matches := traitRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("trait: %s", matches[1]))
+		} else if matches := implRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("impl: %s", matches[1]))
+		} else if matches := modRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("mod: %s", matches[1]))
+		} else if matches := constRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("const: %s", matches[1]))
+		} else if matches := staticRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("static: %s", matches[1]))
+		}
+	}
+	
+	return strings.Join(elements, "\n")
+}
+
+// extractZigStructure extracts basic Zig code structure using regex patterns
+func (analyzer *CodeAnalyzer) extractZigStructure(sourceCode string) string {
+	var elements []string
+	lines := strings.Split(sourceCode, "\n")
+	
+	// Zig patterns
+	fnRegex := regexp.MustCompile(`^\s*(?:pub\s+)?fn\s+(\w+)`)
+	constRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)`)
+	varRegex := regexp.MustCompile(`^\s*(?:pub\s+)?var\s+(\w+)`)
+	structRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)\s*=\s*struct`)
+	enumRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)\s*=\s*enum`)
+	unionRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)\s*=\s*union`)
+	testRegex := regexp.MustCompile(`^\s*test\s+"([^"]+)"`)
+	
+	for _, line := range lines {
+		if matches := testRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("test: %s", matches[1]))
+		} else if matches := structRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("struct: %s", matches[1]))
+		} else if matches := enumRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("enum: %s", matches[1]))
+		} else if matches := unionRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("union: %s", matches[1]))
+		} else if matches := fnRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("function: %s", matches[1]))
+		} else if matches := constRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("const: %s", matches[1]))
+		} else if matches := varRegex.FindStringSubmatch(line); matches != nil {
+			elements = append(elements, fmt.Sprintf("var: %s", matches[1]))
+		}
+	}
+	
+	return strings.Join(elements, "\n")
 }

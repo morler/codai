@@ -25,3 +25,9 @@ var JavascriptQuery []byte
 
 //go:embed tree-sitter/queries/typescript.scm
 var TypescriptQuery []byte
+
+//go:embed tree-sitter/queries/rust.scm
+var RustQuery []byte
+
+//go:embed tree-sitter/queries/zig.scm
+var ZigQuery []byte
