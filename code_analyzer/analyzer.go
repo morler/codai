@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // CodeAnalyzer handles the analysis of project files.
@@ -180,6 +181,276 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 	}
 
 	return &result, nil
+}
+
+
+// GetProjectFilesIncremental performs incremental scanning of project files
+// Returns only files that have been added, modified, or deleted since the last scan
+func (analyzer *CodeAnalyzer) GetProjectFilesIncremental(rootDir string) (*models.FullContextData, bool, error) {
+	if analyzer.cacheManager == nil {
+		// Fallback to full scan if cache is not available
+		fullResult, err := analyzer.GetProjectFiles(rootDir)
+		return fullResult, false, err
+	}
+
+	// Load previous snapshot
+	snapshotKey := fmt.Sprintf("%s_snapshot", rootDir)
+	prevSnapshot := analyzer.loadProjectSnapshot(snapshotKey)
+
+	// Scan current file states
+	currentSnapshot, err := analyzer.createProjectSnapshot(rootDir)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create current snapshot: %w", err)
+	}
+
+	// If no previous snapshot exists, perform full scan and save snapshot
+	if prevSnapshot == nil {
+		fullResult, err := analyzer.GetProjectFiles(rootDir)
+		if err != nil {
+			return nil, false, err
+		}
+
+		// Save current snapshot for next incremental scan
+		analyzer.saveProjectSnapshot(snapshotKey, currentSnapshot)
+		return fullResult, false, nil
+	}
+
+	// Compare snapshots and identify changes
+	changedFiles, deletedFiles := analyzer.compareSnapshots(prevSnapshot, currentSnapshot)
+	
+
+	// If no changes, return cached full result
+	if len(changedFiles) == 0 && len(deletedFiles) == 0 {
+		projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+		if cachedData, found := analyzer.cacheManager.GetConfigCache(projectCacheKey); found {
+			return cachedData, true, nil
+		}
+		// If no cache available, fallback to full scan but mark as incremental since we detected no changes
+		fullResult, err := analyzer.GetProjectFiles(rootDir)
+		return fullResult, true, err
+	}
+
+	// Process changed files incrementally
+	incrementalResult, err := analyzer.processIncrementalChanges(rootDir, changedFiles, deletedFiles, prevSnapshot)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to process incremental changes: %w", err)
+	}
+
+	// Save updated snapshot
+	analyzer.saveProjectSnapshot(snapshotKey, currentSnapshot)
+
+	// Cache the updated full result
+	projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+	analyzer.cacheManager.SetConfigCache(projectCacheKey, incrementalResult)
+
+	return incrementalResult, true, nil
+}
+
+// loadProjectSnapshot loads the previous project snapshot from cache
+func (analyzer *CodeAnalyzer) loadProjectSnapshot(snapshotKey string) *models.ProjectSnapshot {
+	if analyzer.cacheManager == nil {
+		return nil
+	}
+
+	snapshot, found := analyzer.cacheManager.GetProjectSnapshot(snapshotKey)
+	if !found {
+		return nil
+	}
+
+	return snapshot
+}
+
+// saveProjectSnapshot saves the current project snapshot to cache
+func (analyzer *CodeAnalyzer) saveProjectSnapshot(snapshotKey string, snapshot *models.ProjectSnapshot) {
+	if analyzer.cacheManager != nil {
+		analyzer.cacheManager.SetProjectSnapshot(snapshotKey, snapshot)
+	}
+}
+
+// createProjectSnapshot creates a snapshot of current project state
+func (analyzer *CodeAnalyzer) createProjectSnapshot(rootDir string) (*models.ProjectSnapshot, error) {
+	snapshot := &models.ProjectSnapshot{
+		RootDir:   rootDir,
+		Timestamp: time.Now(),
+		Files:     make(map[string]models.FileSnapshot),
+	}
+
+	// Retrieve gitignore patterns
+	gitIgnorePatterns, err := utils.GetGitignorePatterns(rootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Walk directory and create file snapshots
+	err = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relativePath, err := filepath.Rel(rootDir, path)
+		if err != nil {
+			return err
+		}
+		relativePath = strings.ReplaceAll(relativePath, "\\", "/")
+
+		// Skip ignored directories and files
+		if utils.IsDefaultIgnored(relativePath) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Process only files
+		if !d.IsDir() {
+			fileInfo, err := os.Stat(path)
+			if err != nil {
+				return err
+			}
+
+			// Skip large files (>100KB)
+			if fileInfo.Size() > 100*1024 {
+				return nil
+			}
+
+			// Skip gitignored files
+			if utils.IsGitIgnored(relativePath, gitIgnorePatterns) {
+				return nil
+			}
+
+			// Create file snapshot
+			fileSnapshot := models.FileSnapshot{
+				RelativePath: relativePath,
+				ModTime:      fileInfo.ModTime(),
+				Size:         fileInfo.Size(),
+				Hash:         fmt.Sprintf("%d_%d", fileInfo.ModTime().Unix(), fileInfo.Size()),
+			}
+
+			snapshot.Files[relativePath] = fileSnapshot
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshot, nil
+}
+
+// compareSnapshots compares two snapshots and returns changed and deleted files
+func (analyzer *CodeAnalyzer) compareSnapshots(prevSnapshot, currentSnapshot *models.ProjectSnapshot) ([]string, []string) {
+	var changedFiles []string
+	var deletedFiles []string
+
+	// Find changed and new files
+	for relativePath, currentFile := range currentSnapshot.Files {
+		if prevFile, exists := prevSnapshot.Files[relativePath]; exists {
+			// Check if file has changed
+			if prevFile.Hash != currentFile.Hash {
+				changedFiles = append(changedFiles, relativePath)
+			}
+		} else {
+			// New file
+			changedFiles = append(changedFiles, relativePath)
+		}
+	}
+
+	// Find deleted files
+	for relativePath := range prevSnapshot.Files {
+		if _, exists := currentSnapshot.Files[relativePath]; !exists {
+			deletedFiles = append(deletedFiles, relativePath)
+		}
+	}
+
+	return changedFiles, deletedFiles
+}
+
+// processIncrementalChanges processes only the changed files and updates the full result
+func (analyzer *CodeAnalyzer) processIncrementalChanges(rootDir string, changedFiles, deletedFiles []string, prevSnapshot *models.ProjectSnapshot) (*models.FullContextData, error) {
+	// For simplicity and reliability, let's take a different approach:
+	// 1. Start with a fresh scan but only process files efficiently using cache
+	// 2. This ensures we always have a complete and consistent result
+	
+	result := &models.FullContextData{
+		FileData: make([]models.FileData, 0),
+		RawCodes: make([]string, 0),
+	}
+
+	// Get current project snapshot to know all current files
+	currentSnapshot, err := analyzer.createProjectSnapshot(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create current snapshot for incremental processing: %w", err)
+	}
+
+	// Process all current files (changed files will read from disk, unchanged files from cache)
+	for relativePath := range currentSnapshot.Files {
+		filePath := filepath.Join(rootDir, relativePath)
+
+		// Try to get cached file content first (for unchanged files)
+		var content []byte
+		var codeParts []string
+
+		// Check if this file changed
+		isChanged := false
+		for _, changedFile := range changedFiles {
+			if changedFile == relativePath {
+				isChanged = true
+				break
+			}
+		}
+
+		if isChanged {
+			// File changed - read fresh content and process
+			content, err = ioutil.ReadFile(filePath)
+			if err != nil {
+				continue // Skip files that can't be read
+			}
+
+			// Cache the updated file content
+			analyzer.cacheManager.SetFileContentCache(filePath, content)
+
+			// Process with tree-sitter
+			codeParts = analyzer.ProcessFile(relativePath, content)
+
+			// Cache tree-sitter results
+			analyzer.cacheManager.SetTreeSitterCache(filePath, codeParts)
+		} else {
+			// File unchanged - try to use cache
+			if cachedContent, found := analyzer.cacheManager.GetFileContentCache(filePath); found {
+				content = cachedContent
+			} else {
+				// Cache miss - read from disk
+				content, err = ioutil.ReadFile(filePath)
+				if err != nil {
+					continue
+				}
+				analyzer.cacheManager.SetFileContentCache(filePath, content)
+			}
+
+			// Try cached tree-sitter results
+			if cachedParts, found := analyzer.cacheManager.GetTreeSitterCache(filePath); found {
+				codeParts = cachedParts
+			} else {
+				// Cache miss - process with tree-sitter
+				codeParts = analyzer.ProcessFile(relativePath, content)
+				analyzer.cacheManager.SetTreeSitterCache(filePath, codeParts)
+			}
+		}
+
+		// Add to result
+		fileData := models.FileData{
+			RelativePath:   relativePath,
+			Code:          string(content),
+			TreeSitterCode: strings.Join(codeParts, "\n"),
+		}
+
+		result.FileData = append(result.FileData, fileData)
+		result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, strings.Join(codeParts, "\n")))
+	}
+
+	return result, nil
 }
 
 // ProcessFile processes a single file using Tree-sitter for syntax analysis (for .cs files).

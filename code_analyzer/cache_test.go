@@ -1,6 +1,8 @@
 package code_analyzer
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -475,4 +477,344 @@ func main() {
 	// Verify file content is consistent
 	assert.Equal(t, files1.FileData[0].Code, files2.FileData[0].Code)
 	assert.Equal(t, files1.FileData[0].RelativePath, files2.FileData[0].RelativePath)
+}
+
+// TestCacheManager_DetailedStats tests detailed cache statistics
+func TestCacheManager_DetailedStats(t *testing.T) {
+	// Create temporary cache directory
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("codai_cache_test_%d", os.Getpid()))
+	defer os.RemoveAll(tempDir)
+
+	cacheManager, err := NewCacheManager(tempDir)
+	assert.NoError(t, err)
+
+	// Add different types of cache entries
+	testFile := filepath.Join(tempDir, "..", "test_file.go")
+	err = os.WriteFile(testFile, []byte("package main\nfunc main() {}"), 0644)
+	assert.NoError(t, err)
+	defer os.Remove(testFile)
+
+	// Add file content cache
+	err = cacheManager.SetFileContentCache(testFile, []byte("test content"))
+	assert.NoError(t, err)
+
+	// Add tree-sitter cache
+	err = cacheManager.SetTreeSitterCache(testFile, []string{"function", "main"})
+	assert.NoError(t, err)
+
+	// Add project snapshot
+	snapshot := &models.ProjectSnapshot{
+		RootDir:   "/test/path",
+		Timestamp: time.Now(),
+		Files:     make(map[string]models.FileSnapshot),
+	}
+	err = cacheManager.SetProjectSnapshot("test_snapshot", snapshot)
+	assert.NoError(t, err)
+
+	// Get detailed stats
+	stats, err := cacheManager.GetDetailedCacheStats()
+	assert.NoError(t, err)
+	assert.NotNil(t, stats)
+
+	// Verify stats contain expected fields
+	assert.Contains(t, stats, "cache_files")
+	assert.Contains(t, stats, "total_size_mb")
+	assert.Contains(t, stats, "file_content_entries")
+	assert.Contains(t, stats, "tree_sitter_entries")
+	assert.Contains(t, stats, "snapshot_entries")
+	assert.Contains(t, stats, "oldest_entry")
+	assert.Contains(t, stats, "newest_entry")
+
+	// Verify we have the expected cache types
+	assert.Equal(t, 1, stats["file_content_entries"])
+	assert.Equal(t, 1, stats["tree_sitter_entries"])
+	assert.Equal(t, 1, stats["snapshot_entries"])
+
+	t.Logf("📊 Detailed Cache Statistics:")
+	t.Logf("   Files: %v", stats["cache_files"])
+	t.Logf("   Size: %.2f MB", stats["total_size_mb"])
+	t.Logf("   Content entries: %v", stats["file_content_entries"])
+	t.Logf("   Tree-sitter entries: %v", stats["tree_sitter_entries"])
+	t.Logf("   Snapshot entries: %v", stats["snapshot_entries"])
+}
+
+// TestCacheManager_SmartCleanup tests intelligent cache cleanup
+func TestCacheManager_SmartCleanup(t *testing.T) {
+	// Create temporary cache directory
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("codai_cleanup_test_%d", os.Getpid()))
+	defer os.RemoveAll(tempDir)
+
+	cacheManager, err := NewCacheManager(tempDir)
+	assert.NoError(t, err)
+
+	// Add several cache entries with different ages by directly creating cache files
+	testData := []struct {
+		key  string
+		data []byte
+		age  time.Duration
+	}{
+		{"old_file", []byte(strings.Repeat("old content", 100)), 10 * 24 * time.Hour}, // 10 days old
+		{"recent_file", []byte(strings.Repeat("recent content", 50)), 1 * time.Hour}, // 1 hour old
+		{"large_file", []byte(strings.Repeat("large content", 1000)), 2 * time.Hour}, // Large and recent
+	}
+
+	// Create cache entries directly with specific timestamps
+	for _, td := range testData {
+		// Create a cache entry with the desired timestamp
+		entry := CacheEntry{
+			Data:      td.data,
+			Timestamp: time.Now().Add(-td.age), // Set entry timestamp to simulated age
+			FileSize:  int64(len(td.data)),
+			ModTime:   time.Now().Add(-td.age),
+			Hash:      td.key,
+		}
+
+		// Manually encode and write cache entry
+		var buffer bytes.Buffer
+		encoder := gob.NewEncoder(&buffer)
+		err = encoder.Encode(entry)
+		assert.NoError(t, err)
+
+		cacheKey := cacheManager.fileCache.generateCacheKey(td.key)
+		cachePath := cacheManager.fileCache.getCachePath(cacheKey)
+		err = ioutil.WriteFile(cachePath, buffer.Bytes(), 0644)
+		assert.NoError(t, err)
+	}
+
+	// Test dry run cleanup
+	options := CacheCleanupOptions{
+		MaxAge: 5 * 24 * time.Hour, // 5 days
+		DryRun: true,
+	}
+
+	result, err := cacheManager.SmartCleanupCache(options)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Should mark old file for deletion but not actually delete
+	assert.Equal(t, true, result["dry_run"])
+	assert.Greater(t, result["deleted_by_age"].(int), 0)
+	assert.Equal(t, result["files_marked_for_delete"], result["files_actually_deleted"])
+
+	// Test actual cleanup by size
+	options = CacheCleanupOptions{
+		MaxSize: 5 * 1024,  // 5KB limit
+		DryRun:  false,
+	}
+
+	result, err = cacheManager.SmartCleanupCache(options)
+	assert.NoError(t, err)
+	assert.False(t, result["dry_run"].(bool))
+
+	t.Logf("🧹 Cleanup Results:")
+	t.Logf("   Files before: %v", result["files_before_cleanup"])
+	t.Logf("   Files deleted: %v", result["files_actually_deleted"])
+	t.Logf("   Deleted by age: %v", result["deleted_by_age"])
+	t.Logf("   Deleted by size: %v", result["deleted_by_size"])
+	t.Logf("   Size freed: %.2f MB", result["size_to_delete_mb"])
+}
+
+// TestCacheManager_ClearCache tests complete cache clearing
+func TestCacheManager_ClearCache(t *testing.T) {
+	// Create temporary cache directory
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("codai_clear_test_%d", os.Getpid()))
+	defer os.RemoveAll(tempDir)
+
+	cacheManager, err := NewCacheManager(tempDir)
+	assert.NoError(t, err)
+
+	// Add some cache entries
+	testFile := filepath.Join(tempDir, "..", "clear_test.go")
+	err = os.WriteFile(testFile, []byte("package main"), 0644)
+	assert.NoError(t, err)
+	defer os.Remove(testFile)
+
+	err = cacheManager.SetFileContentCache(testFile, []byte("test"))
+	assert.NoError(t, err)
+
+	err = cacheManager.SetTreeSitterCache(testFile, []string{"package"})
+	assert.NoError(t, err)
+
+	// Verify cache has entries
+	stats, err := cacheManager.GetCacheStats()
+	assert.NoError(t, err)
+	assert.Greater(t, stats["cache_files"].(int), 0)
+
+	// Clear cache
+	err = cacheManager.ClearCache()
+	assert.NoError(t, err)
+
+	// Verify cache is empty
+	stats, err = cacheManager.GetCacheStats()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, stats["cache_files"])
+
+	t.Logf("🗑️ Cache cleared successfully")
+}
+
+// TestCacheManager_PerformanceStats tests cache performance statistics
+func TestCacheManager_PerformanceStats(t *testing.T) {
+	// Create temporary cache directory
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("codai_perf_test_%d", os.Getpid()))
+	defer os.RemoveAll(tempDir)
+
+	cacheManager, err := NewCacheManager(tempDir)
+	assert.NoError(t, err)
+
+	// Initial stats should be zero
+	stats := cacheManager.GetPerformanceStats()
+	assert.Equal(t, int64(0), stats["total_requests"])
+	assert.Equal(t, int64(0), stats["cache_hits"])
+	assert.Equal(t, int64(0), stats["cache_misses"])
+	assert.Equal(t, 0.0, stats["hit_rate_percent"])
+
+	// Test file for operations
+	testFile := filepath.Join(tempDir, "..", "perf_test.go")
+	err = os.WriteFile(testFile, []byte("package main\nfunc main() {}"), 0644)
+	assert.NoError(t, err)
+	defer os.Remove(testFile)
+
+	// Perform cache miss operations
+	_, found := cacheManager.GetFileContentCache(testFile)
+	assert.False(t, found) // Should be cache miss
+
+	_, found = cacheManager.GetTreeSitterCache(testFile)
+	assert.False(t, found) // Should be cache miss
+
+	// Check stats after misses
+	stats = cacheManager.GetPerformanceStats()
+	assert.Equal(t, int64(2), stats["total_requests"])
+	assert.Equal(t, int64(0), stats["cache_hits"])
+	assert.Equal(t, int64(2), stats["cache_misses"])
+	assert.Equal(t, 0.0, stats["hit_rate_percent"])
+	assert.Equal(t, 100.0, stats["miss_rate_percent"])
+
+	// Add data to cache
+	testData := []byte("test content for performance")
+	err = cacheManager.SetFileContentCache(testFile, testData)
+	assert.NoError(t, err)
+
+	err = cacheManager.SetTreeSitterCache(testFile, []string{"function", "main"})
+	assert.NoError(t, err)
+
+	// Perform cache hit operations
+	content, found := cacheManager.GetFileContentCache(testFile)
+	assert.True(t, found)
+	assert.Equal(t, testData, content)
+
+	codeParts, found := cacheManager.GetTreeSitterCache(testFile)
+	assert.True(t, found)
+	assert.Equal(t, []string{"function", "main"}, codeParts)
+
+	// Check stats after hits
+	stats = cacheManager.GetPerformanceStats()
+	assert.Equal(t, int64(4), stats["total_requests"])
+	assert.Equal(t, int64(2), stats["cache_hits"])
+	assert.Equal(t, int64(2), stats["cache_misses"])
+	assert.Equal(t, 50.0, stats["hit_rate_percent"])
+	assert.Equal(t, 50.0, stats["miss_rate_percent"])
+
+	// Verify timing fields
+	assert.Greater(t, stats["uptime_seconds"], 0.0)
+	assert.NotEmpty(t, stats["uptime_human"])
+	assert.NotEmpty(t, stats["last_reset"])
+	assert.Greater(t, stats["requests_per_second"], 0.0)
+
+	t.Logf("📈 Performance Statistics:")
+	t.Logf("   Total requests: %v", stats["total_requests"])
+	t.Logf("   Cache hits: %v", stats["cache_hits"])
+	t.Logf("   Cache misses: %v", stats["cache_misses"])
+	t.Logf("   Hit rate: %.2f%%", stats["hit_rate_percent"])
+	t.Logf("   Miss rate: %.2f%%", stats["miss_rate_percent"])
+	t.Logf("   Requests/sec: %.2f", stats["requests_per_second"])
+
+	// Test reset functionality
+	cacheManager.ResetPerformanceStats()
+	stats = cacheManager.GetPerformanceStats()
+	assert.Equal(t, int64(0), stats["total_requests"])
+	assert.Equal(t, int64(0), stats["cache_hits"])
+	assert.Equal(t, int64(0), stats["cache_misses"])
+
+	t.Logf("🔄 Performance stats reset successfully")
+}
+
+// TestCacheManager_ConcurrentPerformanceTracking tests thread-safe performance tracking
+func TestCacheManager_ConcurrentPerformanceTracking(t *testing.T) {
+	// Create temporary cache directory
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("codai_concurrent_test_%d", os.Getpid()))
+	defer os.RemoveAll(tempDir)
+
+	cacheManager, err := NewCacheManager(tempDir)
+	assert.NoError(t, err)
+
+	// Test files
+	const numGoroutines = 10
+	const operationsPerGoroutine = 20
+
+	// Create test files
+	testFiles := make([]string, numGoroutines)
+	for i := 0; i < numGoroutines; i++ {
+		testFile := filepath.Join(tempDir, "..", fmt.Sprintf("concurrent_test_%d.go", i))
+		err = os.WriteFile(testFile, []byte(fmt.Sprintf("package test%d", i)), 0644)
+		assert.NoError(t, err)
+		defer os.Remove(testFile)
+		testFiles[i] = testFile
+	}
+
+	// Concurrent operations
+	done := make(chan bool, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		go func(fileIndex int) {
+			defer func() { done <- true }()
+
+			testFile := testFiles[fileIndex]
+
+			for j := 0; j < operationsPerGoroutine; j++ {
+				// Mix of hits and misses
+				if j < operationsPerGoroutine/2 {
+					// First half will be misses (no data in cache yet)
+					_, _ = cacheManager.GetFileContentCache(testFile)
+				} else {
+					// Second half: first set data, then get it (should be hits)
+					if j == operationsPerGoroutine/2 {
+						// Add to cache
+						err := cacheManager.SetFileContentCache(testFile, []byte(fmt.Sprintf("content %d", fileIndex)))
+						assert.NoError(t, err)
+					}
+					// Now this should be a hit
+					_, found := cacheManager.GetFileContentCache(testFile)
+					assert.True(t, found, "Should find cached content")
+				}
+			}
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < numGoroutines; i++ {
+		<-done
+	}
+
+	// Check final statistics
+	stats := cacheManager.GetPerformanceStats()
+	expectedTotal := int64(numGoroutines * operationsPerGoroutine)
+
+	assert.Equal(t, expectedTotal, stats["total_requests"])
+	assert.Greater(t, stats["cache_hits"], int64(0))
+	assert.Greater(t, stats["cache_misses"], int64(0))
+	assert.Equal(t, stats["cache_hits"].(int64) + stats["cache_misses"].(int64), expectedTotal)
+
+	hitRate := stats["hit_rate_percent"].(float64)
+	missRate := stats["miss_rate_percent"].(float64)
+	assert.InDelta(t, 100.0, hitRate + missRate, 0.01) // Should sum to 100%
+
+	t.Logf("📊 Concurrent Performance Test Results:")
+	t.Logf("   Goroutines: %d", numGoroutines)
+	t.Logf("   Operations per goroutine: %d", operationsPerGoroutine)
+	t.Logf("   Total operations: %v", stats["total_requests"])
+	t.Logf("   Cache hits: %v", stats["cache_hits"])
+	t.Logf("   Cache misses: %v", stats["cache_misses"])
+	t.Logf("   Hit rate: %.2f%%", hitRate)
+	t.Logf("   Miss rate: %.2f%%", missRate)
+	t.Logf("   ✅ Concurrent tracking working correctly")
 }

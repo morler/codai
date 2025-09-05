@@ -83,6 +83,7 @@ func TestRunInSequence(t *testing.T) {
 	t.Run("TestTryGetInCompletedCodeBlockWithAdditionalCharacters", TestTryGetInCompletedCodeBlockWithAdditionalsCharacters)
 	t.Run("TestProcessRustFile", TestProcessRustFile)
 	t.Run("TestProcessZigFile", TestProcessZigFile)
+	t.Run("TestGetProjectFilesIncremental", TestGetProjectFilesIncremental)
 }
 
 func TestGeneratePrompt(t *testing.T) {
@@ -656,4 +657,129 @@ test "empty name validation" {
 	assert.Contains(t, elementsStr, "const: MAX_USERS")
 	assert.Contains(t, elementsStr, "test: user creation")
 	assert.Contains(t, elementsStr, "test: empty name validation")
+}
+
+// TestGetProjectFilesIncremental tests the incremental scanning functionality
+func TestGetProjectFilesIncremental(t *testing.T) {
+	setup(t)
+
+	// Clear any existing cache to ensure clean test
+	if analyzer.(*CodeAnalyzer).cacheManager != nil {
+		// Clean the cache directory for a fresh start
+		cacheDir := analyzer.(*CodeAnalyzer).cacheManager.fileCache.cacheDir
+		os.RemoveAll(filepath.Join(cacheDir, "*"))
+	}
+
+	// Create initial test files
+	testFile1 := filepath.Join(relativePathTestDir, "file1.go")
+	testFile2 := filepath.Join(relativePathTestDir, "file2.go")
+	ignoreFile := filepath.Join(relativePathTestDir, ".gitignore")
+
+	initialContent1 := "package main\nfunc hello() { fmt.Println(\"Hello\") }"
+	initialContent2 := "package main\nfunc world() { fmt.Println(\"World\") }"
+	gitignoreContent := "*.tmp\nnode_modules/"
+
+	err := os.WriteFile(testFile1, []byte(initialContent1), 0644)
+	assert.NoError(t, err)
+	
+	err = os.WriteFile(testFile2, []byte(initialContent2), 0644)
+	assert.NoError(t, err)
+	
+	err = os.WriteFile(ignoreFile, []byte(gitignoreContent), 0644)
+	assert.NoError(t, err)
+
+	// First incremental scan (should perform full scan as no snapshot exists)
+	result1, wasIncremental1, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	assert.NoError(t, err)
+	assert.False(t, wasIncremental1, "First scan should not be incremental")
+	assert.NotNil(t, result1)
+	assert.Len(t, result1.FileData, 2, "Should find 2 Go files")
+
+	// Verify file contents
+	fileMap := make(map[string]string)
+	for _, fileData := range result1.FileData {
+		fileMap[fileData.RelativePath] = fileData.Code
+	}
+	assert.Contains(t, fileMap, "file1.go")
+	assert.Contains(t, fileMap, "file2.go")
+	assert.Equal(t, initialContent1, fileMap["file1.go"])
+	assert.Equal(t, initialContent2, fileMap["file2.go"])
+
+	// Second incremental scan (no changes - should use cache)
+	result2, wasIncremental2, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	assert.NoError(t, err)
+	assert.True(t, wasIncremental2, "Second scan should be incremental")
+	assert.NotNil(t, result2)
+	assert.Len(t, result2.FileData, 2, "Should still find 2 Go files")
+
+	// Sleep briefly to ensure different modification time
+	// time.Sleep(1 * time.Millisecond)
+
+	// Modify file1.go
+	modifiedContent1 := "package main\nfunc hello() { fmt.Println(\"Hello, Modified!\") }"
+	err = os.WriteFile(testFile1, []byte(modifiedContent1), 0644)
+	assert.NoError(t, err)
+
+	// Third incremental scan (should detect changes)
+	result3, wasIncremental3, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	assert.NoError(t, err)
+	assert.True(t, wasIncremental3, "Third scan should be incremental")
+	assert.NotNil(t, result3)
+	assert.Len(t, result3.FileData, 2, "Should still find 2 Go files")
+
+	// Verify updated content
+	fileMap3 := make(map[string]string)
+	for _, fileData := range result3.FileData {
+		fileMap3[fileData.RelativePath] = fileData.Code
+	}
+	assert.Equal(t, modifiedContent1, fileMap3["file1.go"], "file1.go should have updated content")
+	assert.Equal(t, initialContent2, fileMap3["file2.go"], "file2.go should remain unchanged")
+
+	// Add a new file
+	testFile3 := filepath.Join(relativePathTestDir, "file3.go")
+	newContent3 := "package main\nfunc newFunc() { fmt.Println(\"New\") }"
+	err = os.WriteFile(testFile3, []byte(newContent3), 0644)
+	assert.NoError(t, err)
+
+	// Fourth incremental scan (should detect new file)
+	result4, wasIncremental4, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	assert.NoError(t, err)
+	assert.True(t, wasIncremental4, "Fourth scan should be incremental")
+	assert.NotNil(t, result4)
+	assert.Len(t, result4.FileData, 3, "Should find 3 Go files now")
+
+	// Verify new file is included
+	fileMap4 := make(map[string]string)
+	for _, fileData := range result4.FileData {
+		fileMap4[fileData.RelativePath] = fileData.Code
+	}
+	assert.Contains(t, fileMap4, "file3.go")
+	assert.Equal(t, newContent3, fileMap4["file3.go"])
+
+	// Delete a file
+	err = os.Remove(testFile2)
+	assert.NoError(t, err)
+
+	// Fifth incremental scan (should detect deleted file)
+	result5, wasIncremental5, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	assert.NoError(t, err)
+	assert.True(t, wasIncremental5, "Fifth scan should be incremental")
+	assert.NotNil(t, result5)
+	assert.Len(t, result5.FileData, 2, "Should find 2 Go files after deletion")
+
+	// Verify deleted file is not included
+	fileMap5 := make(map[string]string)
+	for _, fileData := range result5.FileData {
+		fileMap5[fileData.RelativePath] = fileData.Code
+	}
+	assert.Contains(t, fileMap5, "file1.go")
+	assert.Contains(t, fileMap5, "file3.go")
+	assert.NotContains(t, fileMap5, "file2.go", "file2.go should be removed from results")
+
+	t.Logf("✅ Incremental scanning test completed successfully")
+	t.Logf("   - Initial scan: %d files (full scan)", len(result1.FileData))
+	t.Logf("   - No changes: %d files (incremental)", len(result2.FileData))
+	t.Logf("   - After modification: %d files (incremental)", len(result3.FileData))
+	t.Logf("   - After addition: %d files (incremental)", len(result4.FileData))
+	t.Logf("   - After deletion: %d files (incremental)", len(result5.FileData))
 }
