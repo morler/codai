@@ -21,9 +21,9 @@ type details struct {
 	MaxTokens               int     `json:"max_tokens"`
 	MaxInputTokens          int     `json:"max_input_tokens"`
 	MaxOutputTokens         int     `json:"max_output_tokens"`
-	InputCostPerToken       float64 `json:"input_cost_per_token,omitempty"`
-	OutputCostPerToken      float64 `json:"output_cost_per_token,omitempty"`
-	CacheReadInputTokenCost float64 `json:"cache_read_input_token_cost,omitempty"`
+	InputCostPerMillionTokens       float64 `json:"input_cost_per_million_tokens,omitempty"`
+	OutputCostPerMillionTokens      float64 `json:"output_cost_per_million_tokens,omitempty"`
+	CacheReadInputMillionTokenCost  float64 `json:"cache_read_input_million_token_cost,omitempty"`
 	Mode                    string  `json:"mode"`
 	SupportsFunctionCalling bool    `json:"supports_function_calling,omitempty"`
 }
@@ -70,11 +70,11 @@ func (tm *tokenManager) CalculateCost(providerName string, modelName string, inp
 	if err != nil {
 		return 0
 	}
-	// Calculate cost for input tokens
-	inputCost := float64(inputToken) * modelDetails.InputCostPerToken
+	// Calculate cost for input tokens (convert from per-million to actual cost)
+	inputCost := float64(inputToken) * modelDetails.InputCostPerMillionTokens / 1000000.0
 
-	// Calculate cost for output tokens
-	outputCost := float64(outputToken) * modelDetails.OutputCostPerToken
+	// Calculate cost for output tokens (convert from per-million to actual cost)
+	outputCost := float64(outputToken) * modelDetails.OutputCostPerMillionTokens / 1000000.0
 
 	// Total cost
 	totalCost := inputCost + outputCost
