@@ -1,8 +1,9 @@
 package code_analyzer
 
 import (
+	"bytes"
 	"crypto/md5"
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,11 +16,11 @@ import (
 
 // CacheEntry represents a cached item with metadata
 type CacheEntry struct {
-	Data      interface{} `json:"data"`
-	Timestamp time.Time   `json:"timestamp"`
-	FileSize  int64       `json:"file_size"`
-	ModTime   time.Time   `json:"mod_time"`
-	Hash      string      `json:"hash"`
+	Data      interface{}
+	Timestamp time.Time
+	FileSize  int64
+	ModTime   time.Time
+	Hash      string
 }
 
 // FileCache manages file-based caching with intelligent invalidation
@@ -35,6 +36,12 @@ type CacheManager struct {
 
 // NewCacheManager creates a new cache manager instance
 func NewCacheManager(cacheDir string) (*CacheManager, error) {
+	// Register types for gob encoding/decoding
+	gob.Register(&models.FullContextData{})
+	gob.Register([]models.FileData{})
+	gob.Register([]string{})
+	gob.Register([]byte{})
+
 	if cacheDir == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -103,7 +110,8 @@ func (fc *FileCache) Get(filePath string) (interface{}, bool) {
 	}
 
 	var entry CacheEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(&entry); err != nil {
 		return nil, false
 	}
 
@@ -136,15 +144,17 @@ func (fc *FileCache) Set(filePath string, data interface{}) error {
 		Hash:      fc.generateCacheKey(filePath),
 	}
 
-	jsonData, err := json.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("failed to marshal cache entry: %w", err)
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	if err := encoder.Encode(entry); err != nil {
+		return fmt.Errorf("failed to encode cache entry: %w", err)
 	}
+	gobData := buffer.Bytes()
 
 	cacheKey := fc.generateCacheKey(filePath)
 	cachePath := fc.getCachePath(cacheKey)
 
-	if err := ioutil.WriteFile(cachePath, jsonData, 0644); err != nil {
+	if err := ioutil.WriteFile(cachePath, gobData, 0644); err != nil {
 		return fmt.Errorf("failed to write cache file: %w", err)
 	}
 
@@ -282,7 +292,8 @@ func (cm *CacheManager) CleanExpiredCache(maxAge time.Duration) error {
 		}
 
 		var entry CacheEntry
-		if err := json.Unmarshal(data, &entry); err != nil {
+		decoder := gob.NewDecoder(bytes.NewReader(data))
+		if err := decoder.Decode(&entry); err != nil {
 			continue
 		}
 
