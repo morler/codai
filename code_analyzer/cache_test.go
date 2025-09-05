@@ -54,7 +54,7 @@ func TestCacheManager_BasicOperations(t *testing.T) {
 	treeSitterFile := testFile + ".treesitter"
 	err = ioutil.WriteFile(treeSitterFile, []byte("dummy"), 0644)
 	require.NoError(t, err)
-	
+
 	treeSitterResult := []string{"function", "main", "return"}
 	err = cacheManager.SetTreeSitterCache(testFile, treeSitterResult)
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestCacheManager_ConfigCache(t *testing.T) {
 		FileData: []models.FileData{
 			{
 				RelativePath:   "test.go",
-				Code:          "package main",
+				Code:           "package main",
 				TreeSitterCode: "package main",
 			},
 		},
@@ -215,7 +215,7 @@ func BenchmarkFileReading_WithVsWithoutCache(b *testing.B) {
 		for i := range content {
 			content[i] = byte('a' + (i % 26))
 		}
-		
+
 		filePath := filepath.Join(tempDir, tf.name)
 		err = ioutil.WriteFile(filePath, content, 0644)
 		require.NoError(b, err)
@@ -269,12 +269,12 @@ func TestCacheManager_PerformanceGains(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		fileName := fmt.Sprintf("test_%d.go", i)
 		filePath := filepath.Join(tempDir, fileName)
-		
+
 		content := make([]byte, fileSize)
 		for j := range content {
 			content[j] = byte('a' + (j % 26))
 		}
-		
+
 		err = ioutil.WriteFile(filePath, content, 0644)
 		require.NoError(t, err)
 		testFiles = append(testFiles, filePath)
@@ -316,7 +316,7 @@ func TestCacheManager_PerformanceGains(t *testing.T) {
 
 	// Calculate improvement percentage - note: cache may not always be faster for small operations
 	improvementRatio := float64(noCacheTime-withCacheTime) / float64(noCacheTime) * 100
-	
+
 	t.Logf("Performance Test Results:")
 	t.Logf("  Files tested: %d", numFiles)
 	t.Logf("  File size each: %d bytes", fileSize)
@@ -466,7 +466,7 @@ func main() {
 		t.Logf("  First call (no cache): %v", firstCallTime)
 		t.Logf("  Second call (with cache): %v", secondCallTime)
 		t.Logf("  Performance improvement: %.2f%%", improvementRatio)
-		
+
 		// In integration tests, cache improvement may be less dramatic but should still be measurable
 		// Note: This assertion might be flaky in very fast systems, so we use a lower threshold
 		if improvementRatio > 10 {
@@ -554,8 +554,8 @@ func TestCacheManager_SmartCleanup(t *testing.T) {
 		age  time.Duration
 	}{
 		{"old_file", []byte(strings.Repeat("old content", 100)), 10 * 24 * time.Hour}, // 10 days old
-		{"recent_file", []byte(strings.Repeat("recent content", 50)), 1 * time.Hour}, // 1 hour old
-		{"large_file", []byte(strings.Repeat("large content", 1000)), 2 * time.Hour}, // Large and recent
+		{"recent_file", []byte(strings.Repeat("recent content", 50)), 1 * time.Hour},  // 1 hour old
+		{"large_file", []byte(strings.Repeat("large content", 1000)), 2 * time.Hour},  // Large and recent
 	}
 
 	// Create cache entries directly with specific timestamps
@@ -598,7 +598,7 @@ func TestCacheManager_SmartCleanup(t *testing.T) {
 
 	// Test actual cleanup by size
 	options = CacheCleanupOptions{
-		MaxSize: 5 * 1024,  // 5KB limit
+		MaxSize: 5 * 1024, // 5KB limit
 		DryRun:  false,
 	}
 
@@ -802,11 +802,11 @@ func TestCacheManager_ConcurrentPerformanceTracking(t *testing.T) {
 	assert.Equal(t, expectedTotal, stats["total_requests"])
 	assert.Greater(t, stats["cache_hits"], int64(0))
 	assert.Greater(t, stats["cache_misses"], int64(0))
-	assert.Equal(t, stats["cache_hits"].(int64) + stats["cache_misses"].(int64), expectedTotal)
+	assert.Equal(t, stats["cache_hits"].(int64)+stats["cache_misses"].(int64), expectedTotal)
 
 	hitRate := stats["hit_rate_percent"].(float64)
 	missRate := stats["miss_rate_percent"].(float64)
-	assert.InDelta(t, 100.0, hitRate + missRate, 0.01) // Should sum to 100%
+	assert.InDelta(t, 100.0, hitRate+missRate, 0.01) // Should sum to 100%
 
 	t.Logf("📊 Concurrent Performance Test Results:")
 	t.Logf("   Goroutines: %d", numGoroutines)

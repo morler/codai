@@ -183,7 +183,6 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 	return &result, nil
 }
 
-
 // GetProjectFilesIncremental performs incremental scanning of project files
 // Returns only files that have been added, modified, or deleted since the last scan
 func (analyzer *CodeAnalyzer) GetProjectFilesIncremental(rootDir string) (*models.FullContextData, bool, error) {
@@ -217,7 +216,6 @@ func (analyzer *CodeAnalyzer) GetProjectFilesIncremental(rootDir string) (*model
 
 	// Compare snapshots and identify changes
 	changedFiles, deletedFiles := analyzer.compareSnapshots(prevSnapshot, currentSnapshot)
-	
 
 	// If no changes, return cached full result
 	if len(changedFiles) == 0 && len(deletedFiles) == 0 {
@@ -372,7 +370,7 @@ func (analyzer *CodeAnalyzer) processIncrementalChanges(rootDir string, changedF
 	// For simplicity and reliability, let's take a different approach:
 	// 1. Start with a fresh scan but only process files efficiently using cache
 	// 2. This ensures we always have a complete and consistent result
-	
+
 	result := &models.FullContextData{
 		FileData: make([]models.FileData, 0),
 		RawCodes: make([]string, 0),
@@ -442,7 +440,7 @@ func (analyzer *CodeAnalyzer) processIncrementalChanges(rootDir string, changedF
 		// Add to result
 		fileData := models.FileData{
 			RelativePath:   relativePath,
-			Code:          string(content),
+			Code:           string(content),
 			TreeSitterCode: strings.Join(codeParts, "\n"),
 		}
 
@@ -497,7 +495,7 @@ func (analyzer *CodeAnalyzer) ProcessFile(filePath string, sourceCode []byte) []
 		elements = append(elements, analyzer.extractRustStructure(string(sourceCode)))
 		return elements
 	case "zig":
-		// Zig support pending tree-sitter bindings availability  
+		// Zig support pending tree-sitter bindings availability
 		// For now, process as plain text with basic structure analysis
 		elements = append(elements, filePath)
 		elements = append(elements, analyzer.extractZigStructure(string(sourceCode)))
@@ -752,7 +750,7 @@ func removeEmptyDirectoryIfNeeded(dir string) error {
 func (analyzer *CodeAnalyzer) extractRustStructure(sourceCode string) string {
 	var elements []string
 	lines := strings.Split(sourceCode, "\n")
-	
+
 	// Rust patterns
 	fnRegex := regexp.MustCompile(`^\s*(?:pub\s+)?fn\s+(\w+)`)
 	structRegex := regexp.MustCompile(`^\s*(?:pub\s+)?struct\s+(\w+)`)
@@ -762,7 +760,7 @@ func (analyzer *CodeAnalyzer) extractRustStructure(sourceCode string) string {
 	modRegex := regexp.MustCompile(`^\s*(?:pub\s+)?mod\s+(\w+)`)
 	constRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)`)
 	staticRegex := regexp.MustCompile(`^\s*(?:pub\s+)?static\s+(\w+)`)
-	
+
 	for _, line := range lines {
 		if matches := fnRegex.FindStringSubmatch(line); matches != nil {
 			elements = append(elements, fmt.Sprintf("function: %s", matches[1]))
@@ -782,7 +780,7 @@ func (analyzer *CodeAnalyzer) extractRustStructure(sourceCode string) string {
 			elements = append(elements, fmt.Sprintf("static: %s", matches[1]))
 		}
 	}
-	
+
 	return strings.Join(elements, "\n")
 }
 
@@ -790,7 +788,7 @@ func (analyzer *CodeAnalyzer) extractRustStructure(sourceCode string) string {
 func (analyzer *CodeAnalyzer) extractZigStructure(sourceCode string) string {
 	var elements []string
 	lines := strings.Split(sourceCode, "\n")
-	
+
 	// Zig patterns
 	fnRegex := regexp.MustCompile(`^\s*(?:pub\s+)?fn\s+(\w+)`)
 	constRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)`)
@@ -799,7 +797,7 @@ func (analyzer *CodeAnalyzer) extractZigStructure(sourceCode string) string {
 	enumRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)\s*=\s*enum`)
 	unionRegex := regexp.MustCompile(`^\s*(?:pub\s+)?const\s+(\w+)\s*=\s*union`)
 	testRegex := regexp.MustCompile(`^\s*test\s+"([^"]+)"`)
-	
+
 	for _, line := range lines {
 		if matches := testRegex.FindStringSubmatch(line); matches != nil {
 			elements = append(elements, fmt.Sprintf("test: %s", matches[1]))
@@ -817,6 +815,6 @@ func (analyzer *CodeAnalyzer) extractZigStructure(sourceCode string) string {
 			elements = append(elements, fmt.Sprintf("var: %s", matches[1]))
 		}
 	}
-	
+
 	return strings.Join(elements, "\n")
 }

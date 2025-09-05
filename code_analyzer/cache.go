@@ -32,12 +32,12 @@ type FileCache struct {
 
 // CacheStats tracks cache performance metrics
 type CacheStats struct {
-	TotalRequests   int64
-	CacheHits       int64
-	CacheMisses     int64
-	TotalSizeBytes  int64
-	LastResetTime   time.Time
-	mutex           sync.RWMutex
+	TotalRequests  int64
+	CacheHits      int64
+	CacheMisses    int64
+	TotalSizeBytes int64
+	LastResetTime  time.Time
+	mutex          sync.RWMutex
 }
 
 // CacheManager provides high-level caching operations
@@ -79,7 +79,7 @@ func NewCacheManager(cacheDir string) (*CacheManager, error) {
 			LastResetTime: time.Now(),
 		},
 	}
-	
+
 	// Perform automatic cleanup on initialization (background cleanup)
 	go cacheManager.performAutoCleanup()
 
@@ -418,10 +418,10 @@ func (cm *CacheManager) GetDetailedCacheStats() (map[string]interface{}, error) 
 
 // CacheCleanupOptions defines options for cache cleanup
 type CacheCleanupOptions struct {
-	MaxAge    time.Duration // Remove entries older than this
-	MaxSize   int64         // Remove oldest entries if cache exceeds this size (bytes)
-	MaxFiles  int           // Remove oldest entries if cache exceeds this number of files
-	DryRun    bool          // If true, only report what would be cleaned without actual deletion
+	MaxAge   time.Duration // Remove entries older than this
+	MaxSize  int64         // Remove oldest entries if cache exceeds this size (bytes)
+	MaxFiles int           // Remove oldest entries if cache exceeds this number of files
+	DryRun   bool          // If true, only report what would be cleaned without actual deletion
 }
 
 // SmartCleanupCache performs intelligent cache cleanup based on various criteria
@@ -457,7 +457,7 @@ func (cm *CacheManager) SmartCleanupCache(options CacheCleanupOptions) (map[stri
 		}
 
 		cachePath := filepath.Join(cm.fileCache.cacheDir, file.Name())
-		
+
 		// Try to read the cache entry to get its timestamp
 		entryAge := file.ModTime() // Fallback to file modification time
 		if data, err := ioutil.ReadFile(cachePath); err == nil {
@@ -566,17 +566,17 @@ func (cm *CacheManager) SmartCleanupCache(options CacheCleanupOptions) (map[stri
 
 	// Return cleanup summary
 	result := map[string]interface{}{
-		"files_before_cleanup":     len(fileInfos),
-		"total_size_before_mb":     float64(totalSize) / (1024 * 1024),
-		"files_marked_for_delete":  len(toDelete),
-		"size_to_delete_mb":        float64(deletedSize) / (1024 * 1024),
-		"files_actually_deleted":   actuallyDeleted,
-		"deleted_by_age":           deletedByAge,
-		"deleted_by_size":          deletedBySize,
-		"deleted_by_count":         deletedByCount,
-		"files_after_cleanup":      len(fileInfos) - actuallyDeleted,
-		"total_size_after_mb":      float64(totalSize-deletedSize) / (1024 * 1024),
-		"dry_run":                  options.DryRun,
+		"files_before_cleanup":    len(fileInfos),
+		"total_size_before_mb":    float64(totalSize) / (1024 * 1024),
+		"files_marked_for_delete": len(toDelete),
+		"size_to_delete_mb":       float64(deletedSize) / (1024 * 1024),
+		"files_actually_deleted":  actuallyDeleted,
+		"deleted_by_age":          deletedByAge,
+		"deleted_by_size":         deletedBySize,
+		"deleted_by_count":        deletedByCount,
+		"files_after_cleanup":     len(fileInfos) - actuallyDeleted,
+		"total_size_after_mb":     float64(totalSize-deletedSize) / (1024 * 1024),
+		"dry_run":                 options.DryRun,
 	}
 
 	return result, nil
@@ -586,9 +586,9 @@ func (cm *CacheManager) SmartCleanupCache(options CacheCleanupOptions) (map[stri
 func (cm *CacheManager) performAutoCleanup() {
 	// Conservative cleanup: remove entries older than 7 days or if cache exceeds 100MB
 	options := CacheCleanupOptions{
-		MaxAge:   7 * 24 * time.Hour,  // 7 days
-		MaxSize:  100 * 1024 * 1024,   // 100MB
-		MaxFiles: 1000,                // Max 1000 files
+		MaxAge:   7 * 24 * time.Hour, // 7 days
+		MaxSize:  100 * 1024 * 1024,  // 100MB
+		MaxFiles: 1000,               // Max 1000 files
 		DryRun:   false,
 	}
 
@@ -610,7 +610,7 @@ func (cm *CacheManager) ClearCache() error {
 		if file.IsDir() {
 			continue
 		}
-		
+
 		cachePath := filepath.Join(cm.fileCache.cacheDir, file.Name())
 		if err := os.Remove(cachePath); err == nil {
 			deletedCount++
@@ -722,7 +722,6 @@ func (cm *CacheManager) CleanExpiredCache(maxAge time.Duration) error {
 
 	return nil
 }
-
 
 // GetFullCacheReport returns a comprehensive cache report including performance and storage stats
 func (cm *CacheManager) GetFullCacheReport() (map[string]interface{}, error) {

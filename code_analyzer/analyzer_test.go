@@ -25,11 +25,11 @@ func setup(t *testing.T) {
 	// Create temporary directory within current working directory to avoid cross-platform issues
 	testDirName := fmt.Sprintf("test_temp_%d", os.Getpid())
 	testDir := filepath.Join(rootDir, testDirName)
-	
+
 	// Create the test directory
 	err = os.MkdirAll(testDir, 0755)
 	assert.NoError(t, err)
-	
+
 	relativePathTestDir = testDirName
 
 	analyzer = NewCodeAnalyzer(relativePathTestDir)
@@ -573,7 +573,7 @@ pub mod utils {
 	// Assertions
 	assert.NotEmpty(t, elements)
 	assert.Greater(t, len(elements), 1)
-	
+
 	// Check that various Rust constructs are detected
 	elementsStr := strings.Join(elements, "\n")
 	assert.Contains(t, elementsStr, "struct: User")
@@ -644,7 +644,7 @@ test "empty name validation" {
 	// Assertions
 	assert.NotEmpty(t, elements)
 	assert.Greater(t, len(elements), 1)
-	
+
 	// Check that various Zig constructs are detected
 	elementsStr := strings.Join(elements, "\n")
 	assert.Contains(t, elementsStr, "struct: User")
@@ -661,35 +661,50 @@ test "empty name validation" {
 
 // TestGetProjectFilesIncremental tests the incremental scanning functionality
 func TestGetProjectFilesIncremental(t *testing.T) {
-	setup(t)
+	// Create an isolated test environment
+	rootDir, err := os.Getwd()
+	assert.NoError(t, err)
 
-	// Clear any existing cache to ensure clean test
-	if analyzer.(*CodeAnalyzer).cacheManager != nil {
-		// Clean the cache directory for a fresh start
-		cacheDir := analyzer.(*CodeAnalyzer).cacheManager.fileCache.cacheDir
-		os.RemoveAll(filepath.Join(cacheDir, "*"))
-	}
+	// Create unique temporary directory for this test using timestamp instead
+	testDirName := fmt.Sprintf("test_incremental_%d", os.Getpid())
+	testDir := filepath.Join(rootDir, testDirName)
+
+	err = os.MkdirAll(testDir, 0755)
+	assert.NoError(t, err)
+
+	// Create isolated analyzer for this test
+	testAnalyzer := NewCodeAnalyzer(testDirName)
+
+	// Cleanup after test
+	t.Cleanup(func() {
+		// Clear cache before cleanup
+		if testAnalyzer.(*CodeAnalyzer).cacheManager != nil {
+			testAnalyzer.(*CodeAnalyzer).cacheManager.ClearCache()
+		}
+		err := os.RemoveAll(testDir)
+		assert.NoError(t, err)
+	})
 
 	// Create initial test files
-	testFile1 := filepath.Join(relativePathTestDir, "file1.go")
-	testFile2 := filepath.Join(relativePathTestDir, "file2.go")
-	ignoreFile := filepath.Join(relativePathTestDir, ".gitignore")
+	testFile1 := filepath.Join(testDirName, "file1.go")
+	testFile2 := filepath.Join(testDirName, "file2.go")
+	ignoreFile := filepath.Join(testDirName, ".gitignore")
 
 	initialContent1 := "package main\nfunc hello() { fmt.Println(\"Hello\") }"
 	initialContent2 := "package main\nfunc world() { fmt.Println(\"World\") }"
 	gitignoreContent := "*.tmp\nnode_modules/"
 
-	err := os.WriteFile(testFile1, []byte(initialContent1), 0644)
+	err = os.WriteFile(testFile1, []byte(initialContent1), 0644)
 	assert.NoError(t, err)
-	
+
 	err = os.WriteFile(testFile2, []byte(initialContent2), 0644)
 	assert.NoError(t, err)
-	
+
 	err = os.WriteFile(ignoreFile, []byte(gitignoreContent), 0644)
 	assert.NoError(t, err)
 
 	// First incremental scan (should perform full scan as no snapshot exists)
-	result1, wasIncremental1, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	result1, wasIncremental1, err := testAnalyzer.GetProjectFilesIncremental(testDirName)
 	assert.NoError(t, err)
 	assert.False(t, wasIncremental1, "First scan should not be incremental")
 	assert.NotNil(t, result1)
@@ -706,7 +721,7 @@ func TestGetProjectFilesIncremental(t *testing.T) {
 	assert.Equal(t, initialContent2, fileMap["file2.go"])
 
 	// Second incremental scan (no changes - should use cache)
-	result2, wasIncremental2, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	result2, wasIncremental2, err := testAnalyzer.GetProjectFilesIncremental(testDirName)
 	assert.NoError(t, err)
 	assert.True(t, wasIncremental2, "Second scan should be incremental")
 	assert.NotNil(t, result2)
@@ -721,7 +736,7 @@ func TestGetProjectFilesIncremental(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Third incremental scan (should detect changes)
-	result3, wasIncremental3, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	result3, wasIncremental3, err := testAnalyzer.GetProjectFilesIncremental(testDirName)
 	assert.NoError(t, err)
 	assert.True(t, wasIncremental3, "Third scan should be incremental")
 	assert.NotNil(t, result3)
@@ -736,13 +751,13 @@ func TestGetProjectFilesIncremental(t *testing.T) {
 	assert.Equal(t, initialContent2, fileMap3["file2.go"], "file2.go should remain unchanged")
 
 	// Add a new file
-	testFile3 := filepath.Join(relativePathTestDir, "file3.go")
+	testFile3 := filepath.Join(testDirName, "file3.go")
 	newContent3 := "package main\nfunc newFunc() { fmt.Println(\"New\") }"
 	err = os.WriteFile(testFile3, []byte(newContent3), 0644)
 	assert.NoError(t, err)
 
 	// Fourth incremental scan (should detect new file)
-	result4, wasIncremental4, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	result4, wasIncremental4, err := testAnalyzer.GetProjectFilesIncremental(testDirName)
 	assert.NoError(t, err)
 	assert.True(t, wasIncremental4, "Fourth scan should be incremental")
 	assert.NotNil(t, result4)
@@ -761,7 +776,7 @@ func TestGetProjectFilesIncremental(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Fifth incremental scan (should detect deleted file)
-	result5, wasIncremental5, err := analyzer.GetProjectFilesIncremental(relativePathTestDir)
+	result5, wasIncremental5, err := testAnalyzer.GetProjectFilesIncremental(testDirName)
 	assert.NoError(t, err)
 	assert.True(t, wasIncremental5, "Fifth scan should be incremental")
 	assert.NotNil(t, result5)

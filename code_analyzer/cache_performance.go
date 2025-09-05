@@ -30,13 +30,13 @@ func (cm *CacheManager) recordCacheMiss() {
 func (cm *CacheManager) GetPerformanceStats() map[string]interface{} {
 	if cm.stats == nil {
 		return map[string]interface{}{
-			"total_requests":     0,
-			"cache_hits":         0,
-			"cache_misses":       0,
-			"hit_rate_percent":   0.0,
-			"miss_rate_percent":  0.0,
-			"uptime_seconds":     0.0,
-			"uptime_human":       "0s",
+			"total_requests":      0,
+			"cache_hits":          0,
+			"cache_misses":        0,
+			"hit_rate_percent":    0.0,
+			"miss_rate_percent":   0.0,
+			"uptime_seconds":      0.0,
+			"uptime_human":        "0s",
 			"requests_per_second": 0.0,
 		}
 	}
@@ -62,15 +62,15 @@ func (cm *CacheManager) GetPerformanceStats() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"total_requests":     cm.stats.TotalRequests,
-		"cache_hits":         cm.stats.CacheHits,
-		"cache_misses":       cm.stats.CacheMisses,
-		"hit_rate_percent":   hitRate,
-		"miss_rate_percent":  missRate,
-		"uptime_seconds":     uptime.Seconds(),
-		"uptime_human":       uptime.String(),
+		"total_requests":      cm.stats.TotalRequests,
+		"cache_hits":          cm.stats.CacheHits,
+		"cache_misses":        cm.stats.CacheMisses,
+		"hit_rate_percent":    hitRate,
+		"miss_rate_percent":   missRate,
+		"uptime_seconds":      uptime.Seconds(),
+		"uptime_human":        uptime.String(),
 		"requests_per_second": reqPerSec,
-		"last_reset":         cm.stats.LastResetTime.Format(time.RFC3339),
+		"last_reset":          cm.stats.LastResetTime.Format(time.RFC3339),
 	}
 }
 
@@ -81,7 +81,7 @@ func (cm *CacheManager) ResetPerformanceStats() {
 	}
 	cm.stats.mutex.Lock()
 	defer cm.stats.mutex.Unlock()
-	
+
 	cm.stats.TotalRequests = 0
 	cm.stats.CacheHits = 0
 	cm.stats.CacheMisses = 0

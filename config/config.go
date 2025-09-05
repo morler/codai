@@ -178,7 +178,7 @@ func GetConfigFileType(filename string) string {
 // LoadConfigWithCache loads configuration with caching support
 func LoadConfigWithCache(rootCmd *cobra.Command, cwd string) *Config {
 	var configFilePath string
-	
+
 	// Determine config file path
 	if cfgFile != "" {
 		configFilePath = cfgFile
@@ -187,7 +187,7 @@ func LoadConfigWithCache(rootCmd *cobra.Command, cwd string) *Config {
 		yamlPath := fmt.Sprintf("%s/codai-config.yaml", cwd)
 		ymlPath := fmt.Sprintf("%s/codai-config.yml", cwd)
 		jsonPath := fmt.Sprintf("%s/codai-config.json", cwd)
-		
+
 		if _, err := os.Stat(yamlPath); err == nil {
 			configFilePath = yamlPath
 		} else if _, err := os.Stat(ymlPath); err == nil {
@@ -245,15 +245,15 @@ func ClearConfigCache() {
 func GetConfigCacheStats() map[string]interface{} {
 	cacheMutex.RLock()
 	defer cacheMutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["cached_files"] = len(configCache)
 	stats["cache_entries"] = make([]string, 0, len(configCache))
-	
+
 	for path := range configCache {
 		stats["cache_entries"] = append(stats["cache_entries"].([]string), path)
 	}
-	
+
 	return stats
 }
 

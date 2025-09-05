@@ -16,9 +16,9 @@ type FullContextData struct {
 
 // ProjectSnapshot represents a snapshot of project file states for incremental scanning
 type ProjectSnapshot struct {
-	RootDir   string                    `json:"root_dir"`
-	Timestamp time.Time                 `json:"timestamp"`
-	Files     map[string]FileSnapshot   `json:"files"`
+	RootDir   string                  `json:"root_dir"`
+	Timestamp time.Time               `json:"timestamp"`
+	Files     map[string]FileSnapshot `json:"files"`
 }
 
 // FileSnapshot represents the state of a single file

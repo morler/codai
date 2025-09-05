@@ -180,14 +180,14 @@ func ClearGitignoreCache() {
 func GetGitignoreCacheStats() map[string]interface{} {
 	cacheMutex.RLock()
 	defer cacheMutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["cached_files"] = len(gitignoreCache)
 	stats["cache_entries"] = make([]string, 0, len(gitignoreCache))
-	
+
 	for path := range gitignoreCache {
 		stats["cache_entries"] = append(stats["cache_entries"].([]string), path)
 	}
-	
+
 	return stats
 }
