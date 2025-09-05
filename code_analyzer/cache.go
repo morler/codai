@@ -722,3 +722,46 @@ func (cm *CacheManager) CleanExpiredCache(maxAge time.Duration) error {
 
 	return nil
 }
+
+
+// GetFullCacheReport returns a comprehensive cache report including performance and storage stats
+func (cm *CacheManager) GetFullCacheReport() (map[string]interface{}, error) {
+	report := make(map[string]interface{})
+
+	// Get performance stats
+	perfStats := cm.GetPerformanceStats()
+	report["performance"] = perfStats
+
+	// Get detailed cache stats
+	cacheStats, err := cm.GetDetailedCacheStats()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get detailed cache stats: %w", err)
+	}
+	report["storage"] = cacheStats
+
+	// Calculate efficiency metrics
+	efficiency := make(map[string]interface{})
+	if totalFiles := cacheStats["cache_files"].(int); totalFiles > 0 {
+		totalSizeMB := cacheStats["total_size_mb"].(float64)
+		avgFileSizeKB := (totalSizeMB * 1024) / float64(totalFiles)
+		efficiency["avg_file_size_kb"] = avgFileSizeKB
+		efficiency["storage_efficiency"] = "good"
+		if avgFileSizeKB > 100 {
+			efficiency["storage_efficiency"] = "check large files"
+		}
+	}
+
+	if hitRate := perfStats["hit_rate"].(float64); hitRate > 0 {
+		efficiency["cache_efficiency"] = "excellent"
+		if hitRate < 50 {
+			efficiency["cache_efficiency"] = "poor - consider cache warming"
+		} else if hitRate < 75 {
+			efficiency["cache_efficiency"] = "moderate"
+		}
+	}
+
+	report["efficiency"] = efficiency
+	report["generated_at"] = time.Now().Format(time.RFC3339)
+
+	return report, nil
+}
