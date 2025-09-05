@@ -1,46 +1,39 @@
-[![CI](https://github.com/meysamhadeli/codai/actions/workflows/ci.yml/badge.svg?branch=main&style=flat-square)](https://github.com/meysamhadeli/codai/actions/workflows/ci.yml)
-![Go Version](https://img.shields.io/badge/go%20version-%3E=1.23-61CFDD.svg?style=flat-square)
-[![Apache License](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](https://github.com/meysamhadeli/codai/blob/main/LICENSE)
-[![Go Reference](https://pkg.go.dev/badge/github.com/meysamhadeli/codai.svg)](https://pkg.go.dev/github.com/meysamhadeli/codai)
-
 # Codai
 
-> 🤖 **AI coding agent for your terminal.**
+> 🤖 **AI-Powered Coding Assistant for Your Terminal** | [中文版本](./README-zh.md)
 
 ![](./assets/codai-demo.gif)
 
 
 ## ✨ Features
 
-⚡ Support variety of LLMs like OpenAI, Anthropic, Gemini, Grok, DeepSeek, Qween and more.
+### 🤖 AI Provider Support
+- **10+ AI Providers**: OpenAI, Anthropic, Gemini, Grok, DeepSeek, Qwen, Mistral, Azure OpenAI, Ollama, and more
+- **Flexible Configuration**: Easy switching between providers and models
+- **Local AI Support**: Run with local models via Ollama
 
-🧠 Context-aware code completions.
+### 🧠 Intelligent Code Analysis
+- **Context-Aware**: Understands your entire project structure and dependencies
+- **Tree-sitter Integration**: Advanced syntax parsing for precise code understanding
+- **Multi-language Support**: C#, Go, Python, Java, JavaScript, TypeScript, Rust, Zig, and more
 
-📊 Maintains conversational and code context per session.
+### 🚀 Performance & Efficiency
+- **Intelligent Caching System**: 13%+ performance improvement for repeated operations
+- **Session Management**: Maintains conversation and code context across sessions
+- **Token Tracking**: Monitor and optimize AI request costs
 
-🌳 Summarize Full Project Context using Tree-sitter.
+### 🔧 Development Workflow
+- **Code Generation**: Add new features, functions, and test cases
+- **Refactoring**: Improve code structure and efficiency
+- **Bug Fixing**: Intelligent bug detection and solution suggestions
+- **Code Review**: AI-powered code quality analysis and optimization
+- **Documentation**: Generate comprehensive project documentation
+- **Multi-file Operations**: Modify multiple files simultaneously
 
-🚀 **Intelligent File Caching System** - Dramatically improves performance for large projects and repeated operations.
-
-➕ Adding new features or test cases.
-
-🔄 Refactoring code structure and efficiency.
-
-🐛 Describe and suggest fixes for bugs.
-
-✅ Code Review Assistance and optimize code quality.
-
-✔️ Accept and apply AI-generated code changes.
-
-📚 Generate comprehensive documentation.
-
-🌐 Works with multiple programming languages such as (C#, Go, Python, Java, Javascript, Typescript, **Rust, Zig**).
-
-⚙️ Adjust settings via a config file.
-
-🗂️ Enable the AI to modify several files at the same time.
-
-💳 Track and represent the token consumption for each request.
+### ⚙️ Configuration & Customization
+- **Flexible Config**: YAML config files, environment variables, or CLI parameters
+- **Theme Support**: Multiple syntax highlighting themes via Chroma
+- **Custom Ignore**: `.codai-gitignore` for fine-grained file filtering
 
 ## 🚀 Get Started
 To install `codai` globally, you can use the following command:
