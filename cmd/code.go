@@ -190,12 +190,17 @@ startLoop: // Label for the start loop
 				return nil
 			}
 
-			// Try to get full block code if block codes is summarized and incomplete
+			// First, execute the AI request
+			if err := chatRequestOperation(); err != nil {
+				fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
+				displayTokens()
+				continue startLoop
+			}
+
+			// After AI response is complete, try to get full block code if block codes is summarized and incomplete
 			requestedContext, err = rootDependencies.Analyzer.TryGetInCompletedCodeBlocK(aiResponseBuilder.String())
 
 			if requestedContext != "" && err == nil {
-				aiResponseBuilder.Reset()
-
 				fmt.Print("\n")
 
 				contextAccepted, err := utils.ConfirmAdditinalContext(reader)
@@ -207,6 +212,9 @@ startLoop: // Label for the start loop
 				if contextAccepted {
 					fmt.Println(lipgloss.Green.Render("✔️ Context accepted!"))
 
+					// Reset the builder for second request
+					aiResponseBuilder.Reset()
+
 					if err := chatRequestOperation(); err != nil {
 						fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
 						displayTokens()
@@ -216,12 +224,6 @@ startLoop: // Label for the start loop
 				} else {
 					fmt.Println(lipgloss.Red.Render("❌ Context rejected."))
 				}
-			}
-
-			if err := chatRequestOperation(); err != nil {
-				fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
-				displayTokens()
-				continue startLoop
 			}
 
 			// Extract code from AI response and structure this code to apply to git
