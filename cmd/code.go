@@ -178,7 +178,11 @@ startLoop: // Label for the start loop
 					aiResponseBuilder.WriteString(response.Content)
 
 					language := utils.DetectLanguageFromCodeBlock(response.Content)
-					if err := utils.RenderAndPrintMarkdown(response.Content, language, rootDependencies.Config.Theme); err != nil {
+					if err := utils.RenderAndPrintMarkdownWithContext(ctx, response.Content, language, rootDependencies.Config.Theme); err != nil {
+						// Check if it was cancelled by user
+						if err == context.Canceled {
+							return fmt.Errorf("Output cancelled by user")
+						}
 						return fmt.Errorf("Error rendering markdown: %v", err)
 					}
 				}
