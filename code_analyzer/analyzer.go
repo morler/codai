@@ -597,7 +597,9 @@ func (analyzer *CodeAnalyzer) TryGetInCompletedCodeBlocK(relativePaths string) (
 
 	// Loop through each relative path and read the file content
 	for _, relativePath := range filePaths {
-		content, err := os.ReadFile(relativePath)
+		// Convert relative path to absolute path using the analyzer's working directory
+		fullPath := filepath.Join(analyzer.Cwd, relativePath)
+		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			continue
 		}

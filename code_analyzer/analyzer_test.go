@@ -482,15 +482,20 @@ func TestExtractCodeChangesWithMultipleCodeBlocksSameFile(t *testing.T) {
 func TestTryGetInCompletedCodeBlock(t *testing.T) {
 	setup(t) // setup before the first test runs
 
-	// Create relative paths for test files within the temporary directory
-	file1Path := strings.ReplaceAll(filepath.Join(relativePathTestDir, "test.go"), `\`, `\\`)
-	file2Path := strings.ReplaceAll(filepath.Join(relativePathTestDir, "test2.go"), `\`, `\\`)
+	// Create full paths for writing files in the temporary directory
+	fullFile1Path := filepath.Join(relativePathTestDir, "test.go")
+	fullFile2Path := filepath.Join(relativePathTestDir, "test2.go")
+	
+	// Create the files with full paths
+	_ = os.WriteFile(fullFile1Path, []byte("package main\nfunc main() {}"), 0644)
+	_ = os.WriteFile(fullFile2Path, []byte("package test\nfunc test() {}"), 0644)
 
-	_ = os.WriteFile(file1Path, []byte("package main\nfunc main() {}"), 0644)
-	_ = os.WriteFile(file2Path, []byte("package test\nfunc test() {}"), 0644)
-
-	// Prepare JSON-encoded relativePaths string with escaped backslashes
-	relativePaths := fmt.Sprintf(`["%s", "%s"]`, file1Path, file2Path)
+	// Use relative paths (relative to the analyzer's working directory) for JSON
+	relativeFile1 := "test.go"
+	relativeFile2 := "test2.go"
+	
+	// Prepare JSON-encoded relativePaths string
+	relativePaths := fmt.Sprintf(`["%s", "%s"]`, relativeFile1, relativeFile2)
 
 	requestedContext, err := analyzer.TryGetInCompletedCodeBlocK(relativePaths)
 
@@ -505,15 +510,20 @@ func TestTryGetInCompletedCodeBlock(t *testing.T) {
 func TestTryGetInCompletedCodeBlockWithAdditionalsCharacters(t *testing.T) {
 	setup(t) // setup before the first test runs
 
-	// Create relative paths for test files within the temporary directory
-	file1Path := strings.ReplaceAll(filepath.Join(relativePathTestDir, "test.go"), `\`, `\\`)
-	file2Path := strings.ReplaceAll(filepath.Join(relativePathTestDir, "test2.go"), `\`, `\\`)
+	// Create full paths for writing files in the temporary directory
+	fullFile1Path := filepath.Join(relativePathTestDir, "test.go")
+	fullFile2Path := filepath.Join(relativePathTestDir, "test2.go")
+	
+	// Create the files with full paths
+	_ = os.WriteFile(fullFile1Path, []byte("package main\nfunc main() {}"), 0644)
+	_ = os.WriteFile(fullFile2Path, []byte("package test\nfunc test() {}"), 0644)
 
-	_ = os.WriteFile(file1Path, []byte("package main\nfunc main() {}"), 0644)
-	_ = os.WriteFile(file2Path, []byte("package test\nfunc test() {}"), 0644)
-
-	// Prepare JSON-encoded relativePaths string with escaped backslashes
-	relativePaths := fmt.Sprintf(`{"###file":["%s", "%s"]\n\n}`, file1Path, file2Path)
+	// Use relative paths (relative to the analyzer's working directory) for JSON
+	relativeFile1 := "test.go"
+	relativeFile2 := "test2.go"
+	
+	// Prepare JSON-encoded relativePaths string with additional characters
+	relativePaths := fmt.Sprintf(`{"###file":["%s", "%s"]\n\n}`, relativeFile1, relativeFile2)
 
 	requestedContext, err := analyzer.TryGetInCompletedCodeBlocK(relativePaths)
 
