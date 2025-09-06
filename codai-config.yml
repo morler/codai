@@ -1,0 +1,12 @@
+ai_provider_config:
+  provider: "openrouter"
+  base_url: "https://openrouter.ai/api/v1"
+  api_key: "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"
+  model: "x-ai/grok-code-fast-1"
+  temperature: 0.2     #（可选，如果你想使用'Temperature'）
+  max_input_tokens: 25600
+  max_output_tokens: 32768
+  input_cost_per_million_tokens: 0.2
+  output_cost_per_million_tokens_batches: 1.5
+  cache_read_input_million_token_cost: 0.02
+theme: "dracula"

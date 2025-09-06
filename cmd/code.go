@@ -112,21 +112,57 @@ startLoop: // Label for the start loop
 
 				finalPrompt, userInputPrompt := rootDependencies.Analyzer.GeneratePrompt(fullContext.RawCodes, rootDependencies.ChatHistory.GetHistory(), userInput, requestedContext)
 
+				// 启动AI思考动画
+				aiSpinner := pterm.DefaultSpinner.
+					WithStyle(pterm.NewStyle(pterm.FgCyan)).
+					WithSequence("🤔", "🧠", "💭", "✨", "🚀", "💡").
+					WithDelay(200).
+					WithRemoveWhenDone(true)
+				
+				// 根据不同provider显示不同的动画文案
+				var spinnerText string
+				switch rootDependencies.Config.AIProviderConfig.Provider {
+				case "anthropic":
+					spinnerText = "Claude is analyzing your code..."
+				case "openai":
+					spinnerText = "ChatGPT is processing your request..."
+				case "azure-openai":
+					spinnerText = "Azure OpenAI is processing..."
+				case "gemini":
+					spinnerText = "Gemini is thinking..."
+				case "ollama":
+					spinnerText = "Local AI is working..."
+				case "deepseek":
+					spinnerText = "DeepSeek is analyzing..."
+				case "grok":
+					spinnerText = "Grok is processing..."
+				case "mistral":
+					spinnerText = "Mistral is thinking..."
+				case "qwen":
+					spinnerText = "Qwen is working..."
+				case "openrouter":
+					spinnerText = "OpenRouter AI is processing..."
+				default:
+					spinnerText = "AI is thinking..."
+				}
+				
+				spinnerAI, _ := aiSpinner.Start(spinnerText)
+
 				// Step 7: Send the relevant code and user input to the AI API
 				responseChan := rootDependencies.CurrentChatProvider.ChatCompletionRequest(ctx, userInputPrompt, finalPrompt)
 
-				// 显示开始时的token状态
-				fmt.Print("\n")
-				displayLiveTokens()
-				fmt.Print("\n")
-				
 				// Iterate over response channel to handle streamed data or errors.
+				firstResponse := true
 				for response := range responseChan {
 					if response.Err != nil {
+						spinnerAI.Stop()
 						return response.Err
 					}
 
 					if response.Done {
+						if firstResponse {
+							spinnerAI.Stop()
+						}
 						rootDependencies.ChatHistory.AddToHistory(userInput, aiResponseBuilder.String())
 						// 流式响应结束后，显示最终token信息
 						fmt.Print("\n")
@@ -135,17 +171,18 @@ startLoop: // Label for the start loop
 						return nil
 					}
 
+					// 收到第一个响应内容时停止spinner并开始显示内容
+					if firstResponse && response.Content != "" {
+						spinnerAI.Stop()
+						fmt.Print("\n") // 为输出内容留出空间
+						firstResponse = false
+					}
+
 					aiResponseBuilder.WriteString(response.Content)
 
 					language := utils.DetectLanguageFromCodeBlock(response.Content)
 					if err := utils.RenderAndPrintMarkdown(response.Content, language, rootDependencies.Config.Theme); err != nil {
 						return fmt.Errorf("Error rendering markdown: %v", err)
-					}
-					
-					// 每次接收到新内容后更新token显示（如果有token信息更新的话）
-					total, _, _ := rootDependencies.TokenManagement.GetCurrentTokenUsage()
-					if total > 0 {
-						displayLiveTokens()
 					}
 				}
 

@@ -464,3 +464,68 @@ git log --oneline -10
 - **线程安全**: token统计操作保持原有的线程安全特性
 
 ✅ **状态**: 实时Token消耗更新功能已完成，用户可以在AI对话过程中实时监控token使用情况！
+
+## 🎨 新任务 - LLM等待动画UI增强 ✅ (2025-09-06 完成)
+
+### 用户体验优化
+- [x] 分析LLM响应等待期间缺乏UI反馈的问题 ✅ (已完成)
+- [x] 设计基于pterm库的终端动画方案 ✅ (已完成)
+- [x] 实现AI思考状态的可视化spinner动画 ✅ (已完成)
+- [x] 集成动画到ChatCompletionRequest流程 ✅ (已完成)
+- [x] 添加针对不同AI providers的个性化文案 ✅ (已完成)
+
+### 🔧 技术实现详情
+
+#### 动画设计
+- **动画序列**: 使用emoji表情符号 `🤔 🧠 💭 ✨ 🚀 💡` 循环显示
+- **颜色主题**: 青色(FgCyan)主题，与项目UI风格保持一致
+- **动画速度**: 200ms延迟，适中的动画速度不会分散注意力
+- **自动清理**: `WithRemoveWhenDone(true)` 确保动画结束后清理终端
+
+#### 智能文案系统
+**根据AI Provider显示个性化消息**:
+- `anthropic`: "Claude is analyzing your code..."
+- `openai`: "ChatGPT is processing your request..."
+- `azure-openai`: "Azure OpenAI is processing..."
+- `gemini`: "Gemini is thinking..."
+- `ollama`: "Local AI is working..."
+- `deepseek`: "DeepSeek is analyzing..."
+- `grok`: "Grok is processing..."
+- `mistral`: "Mistral is thinking..."
+- `qwen`: "Qwen is working..."
+- `openrouter`: "OpenRouter AI is processing..."
+- **默认**: "AI is thinking..."
+
+#### 响应流程集成
+- **动画启动**: 在发送API请求后立即启动spinner
+- **智能停止**: 收到第一个有内容的响应时自动停止动画
+- **错误处理**: 发生错误时确保spinner被正确停止
+- **流程完整性**: 保持原有的token显示和响应处理逻辑不变
+
+### 🎯 用户体验改进
+
+#### 解决的问题
+1. **等待期间无反馈**: 用户不知道系统是否在工作
+2. **UI呆板**: 缺乏动态视觉反馈让界面显得不活跃
+3. **响应状态不明确**: 用户无法区分网络延迟和AI处理时间
+4. **多provider体验差异**: 不同AI服务没有差异化的用户提示
+
+#### 实际效果
+- **视觉反馈**: 生动的emoji动画让等待过程更有趣
+- **状态清晰**: 用户明确知道AI正在处理请求
+- **品牌识别**: 不同AI provider有个性化的处理提示
+- **无缝体验**: 动画与响应内容的平滑过渡
+
+### 🚀 技术亮点
+- **非阻塞动画**: spinner运行在独立goroutine中，不影响主流程
+- **智能控制**: 基于响应内容智能停止，避免动画与输出冲突
+- **资源管理**: 确保所有场景下spinner都能正确清理
+- **扩展性**: 支持轻松添加新的AI provider文案
+
+### 📊 实现统计
+- **文件修改**: `cmd/code.go` 1个文件
+- **代码增量**: ~30行新增代码
+- **功能覆盖**: 支持项目中的10个AI providers
+- **动画帧数**: 6个emoji帧的流畅循环动画
+
+✅ **状态**: LLM等待动画UI增强已完成，用户现在可以看到生动的AI思考过程可视化反馈！
