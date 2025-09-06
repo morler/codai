@@ -443,7 +443,7 @@ func main() {
 	require.NoError(t, err)
 
 	// Create analyzer with cache
-	analyzer := NewCodeAnalyzer(tempDir)
+	analyzer := NewCodeAnalyzer(tempDir, true) // 测试中启用缓存
 
 	// First call - should populate cache
 	startTime := time.Now()

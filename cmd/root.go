@@ -68,7 +68,7 @@ func handleRootCommand(cmd *cobra.Command) *RootDependencies {
 
 	rootDependencies.ChatHistory = chat_history.NewChatHistory()
 
-	rootDependencies.Analyzer = code_analyzer.NewCodeAnalyzer(rootDependencies.Cwd)
+	rootDependencies.Analyzer = code_analyzer.NewCodeAnalyzer(rootDependencies.Cwd, rootDependencies.Config.EnableCache)
 
 	if err != nil {
 		fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))

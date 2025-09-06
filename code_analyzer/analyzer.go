@@ -51,13 +51,23 @@ func (analyzer *CodeAnalyzer) GeneratePrompt(codes []string, history []string, u
 }
 
 // NewCodeAnalyzer initializes a new CodeAnalyzer.
-func NewCodeAnalyzer(cwd string) contracts.ICodeAnalyzer {
-	// Initialize cache manager with project-local cache directory
-	cacheDir := filepath.Join(cwd, ".cache")
-	cacheManager, err := NewCacheManager(cacheDir)
-	if err != nil {
-		// Fallback to no caching if cache initialization fails
-		log.Printf("Warning: Failed to initialize cache manager: %v", err)
+func NewCodeAnalyzer(cwd string, enableCache bool) contracts.ICodeAnalyzer {
+	var cacheManager *CacheManager
+	
+	if enableCache {
+		// Initialize cache manager with project-local cache directory
+		cacheDir := filepath.Join(cwd, ".cache")
+		var err error
+		cacheManager, err = NewCacheManager(cacheDir)
+		if err != nil {
+			// Fallback to no caching if cache initialization fails
+			log.Printf("Warning: Failed to initialize cache manager: %v", err)
+			cacheManager = nil
+		} else {
+			log.Printf("Cache enabled at: %s", cacheDir)
+		}
+	} else {
+		log.Printf("Cache disabled by configuration")
 		cacheManager = nil
 	}
 

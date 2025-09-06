@@ -32,7 +32,7 @@ func setup(t *testing.T) {
 
 	relativePathTestDir = testDirName
 
-	analyzer = NewCodeAnalyzer(relativePathTestDir)
+	analyzer = NewCodeAnalyzer(relativePathTestDir, true) // 测试中启用缓存
 
 	// Register cleanup to remove everything inside relativePathTestDir
 	t.Cleanup(func() {
@@ -683,7 +683,7 @@ func TestGetProjectFilesIncremental(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create isolated analyzer for this test
-	testAnalyzer := NewCodeAnalyzer(testDirName)
+	testAnalyzer := NewCodeAnalyzer(testDirName, true) // 测试中启用缓存
 
 	// Cleanup after test
 	t.Cleanup(func() {

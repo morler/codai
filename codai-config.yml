@@ -11,3 +11,4 @@ ai_provider_config:
   #cache_read_input_million_token_cost: 0.02
 theme: "dracula"
 file_display_mode: relevant
+enable_cache: true  # 启用缓存以提升性能

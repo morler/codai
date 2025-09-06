@@ -29,6 +29,7 @@ type Config struct {
 	Version          string                      `mapstructure:"version"`
 	Theme            string                      `mapstructure:"theme"`
 	FileDisplayMode  string                      `mapstructure:"file_display_mode"`
+	EnableCache      bool                        `mapstructure:"enable_cache"`
 	AIProviderConfig *providers.AIProviderConfig `mapstructure:"ai_provider_config"`
 }
 
@@ -37,6 +38,7 @@ var DefaultConfig = Config{
 	Version:         "1.8.4",
 	Theme:           "dracula",
 	FileDisplayMode: "info",
+	EnableCache:     true, // 默认启用缓存
 	AIProviderConfig: &providers.AIProviderConfig{
 		Provider:        "openai",
 		BaseURL:         "https://api.openai.com/v1",
@@ -112,6 +114,7 @@ func setDefaults() {
 	viper.SetDefault("version", DefaultConfig.Version)
 	viper.SetDefault("theme", DefaultConfig.Theme)
 	viper.SetDefault("file_display_mode", DefaultConfig.FileDisplayMode)
+	viper.SetDefault("enable_cache", DefaultConfig.EnableCache)
 	viper.SetDefault("ai_provider_config.provider", DefaultConfig.AIProviderConfig.Provider)
 	viper.SetDefault("ai_provider_config.base_url", DefaultConfig.AIProviderConfig.BaseURL)
 	viper.SetDefault("ai_provider_config.model", DefaultConfig.AIProviderConfig.Model)
@@ -127,6 +130,7 @@ func setDefaults() {
 func bindEnv() {
 	_ = viper.BindEnv("theme", "THEME")
 	_ = viper.BindEnv("file_display_mode", "FILE_DISPLAY_MODE")
+	_ = viper.BindEnv("enable_cache", "ENABLE_CACHE")
 	_ = viper.BindEnv("ai_provider_config.provider", "PROVIDER")
 	_ = viper.BindEnv("ai_provider_config.base_url", "BASE_URL")
 	_ = viper.BindEnv("ai_provider_config.model", "MODEL")
@@ -140,6 +144,7 @@ func bindEnv() {
 func bindFlags(rootCmd *cobra.Command) {
 	_ = viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
 	_ = viper.BindPFlag("file_display_mode", rootCmd.PersistentFlags().Lookup("file_display_mode"))
+	_ = viper.BindPFlag("enable_cache", rootCmd.PersistentFlags().Lookup("enable_cache"))
 	_ = viper.BindPFlag("ai_provider_config.provider", rootCmd.PersistentFlags().Lookup("provider"))
 	_ = viper.BindPFlag("ai_provider_config.base_url", rootCmd.PersistentFlags().Lookup("base_url"))
 	_ = viper.BindPFlag("ai_provider_config.model", rootCmd.PersistentFlags().Lookup("model"))
@@ -159,6 +164,9 @@ func InitFlags(rootCmd *cobra.Command) {
 	
 	// File display mode configuration
 	rootCmd.PersistentFlags().String("file_display_mode", DefaultConfig.FileDisplayMode, "Set file display mode: 'info' (file info only), 'relevant' (relevant code parts), 'full' (complete file content)")
+	
+	// Cache configuration
+	rootCmd.PersistentFlags().Bool("enable_cache", DefaultConfig.EnableCache, "Enable or disable file caching for improved performance")
 
 	// Version flag
 	rootCmd.Flags().BoolP("version", "v", false, "Specifies the version of the application.")
