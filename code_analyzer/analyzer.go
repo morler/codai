@@ -576,6 +576,10 @@ func (analyzer *CodeAnalyzer) TryGetInCompletedCodeBlocK(relativePaths string) (
 	if jsonContent == "" {
 		jsonContent = relativePaths // Use original if no markdown blocks found
 	}
+	
+	// Clean up JSON content - remove "json" prefix if present
+	jsonContent = strings.TrimPrefix(jsonContent, "json")
+	jsonContent = strings.TrimSpace(jsonContent)
 
 	// First try to parse as JSON object with "files" key
 	var jsonObj struct {
@@ -624,28 +628,36 @@ func (analyzer *CodeAnalyzer) TryGetInCompletedCodeBlocK(relativePaths string) (
 	return requestedContext, nil
 }
 
-// extractJSONFromMarkdown extracts JSON content from markdown code blocks
+// extractJSONFromMarkdown extracts JSON content from markdown code blocks that represents file requests
 func (analyzer *CodeAnalyzer) extractJSONFromMarkdown(text string) string {
-	// Match ```json ... ``` blocks
+	// Only extract JSON from blocks that are specifically marked as containing file requests
+	// Look for patterns that indicate this is a file request, not just any JSON
+	
+	// Match ```json ... ``` blocks but only if they contain file request patterns
 	jsonBlockRegex := regexp.MustCompile("(?s)```json\\s*\\n(.+?)\\n```")
 	matches := jsonBlockRegex.FindStringSubmatch(text)
 	if len(matches) > 1 {
-		return strings.TrimSpace(matches[1])
+		jsonContent := strings.TrimSpace(matches[1])
+		// Only extract if it looks like a file request (contains "files" field with array)
+		if strings.Contains(jsonContent, "\"files\"") || strings.Contains(jsonContent, "'files'") {
+			return jsonContent
+		}
 	}
 
-	// Match ``` ... ``` blocks (without language specification)
-	codeBlockRegex := regexp.MustCompile("(?s)```\\s*\\n(.+?)\\n```")
+	// Match generic ``` ... ``` blocks but be more restrictive
+	codeBlockRegex := regexp.MustCompile("(?s)```\\s*\\n([^`]+)\\n```")
 	matches = codeBlockRegex.FindStringSubmatch(text)
 	if len(matches) > 1 {
 		content := strings.TrimSpace(matches[1])
-		// Check if it looks like JSON (starts with { or [)
 		trimmed := strings.TrimSpace(content)
-		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		// Only extract if it's valid JSON and looks like a file request
+		if (strings.HasPrefix(trimmed, "{") && strings.Contains(content, "\"files\"") || strings.Contains(content, "'files'")) ||
+		   (strings.HasPrefix(trimmed, "[") && strings.Contains(content, ".")) { // Array of file paths
 			return content
 		}
 	}
 
-	return "" // No JSON found in markdown blocks
+	return "" // No file request JSON found in markdown blocks
 }
 
 func (analyzer *CodeAnalyzer) ExtractCodeChanges(diff string) []models.CodeChange {
