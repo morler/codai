@@ -202,27 +202,15 @@ startLoop: // Label for the start loop
 
 			if requestedContext != "" && err == nil {
 				fmt.Print("\n")
+				fmt.Println(lipgloss.Green.Render("🔄 Auto-accepting additional context for complete code blocks..."))
 
-				contextAccepted, err := utils.ConfirmAdditinalContext(reader)
-				if err != nil {
-					fmt.Println(lipgloss.Red.Render(fmt.Sprintf("error getting user prompt: %v", err)))
+				// Reset the builder for second request
+				aiResponseBuilder.Reset()
+
+				if err := chatRequestOperation(); err != nil {
+					fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
+					displayTokens()
 					continue
-				}
-
-				if contextAccepted {
-					fmt.Println(lipgloss.Green.Render("✔️ Context accepted!"))
-
-					// Reset the builder for second request
-					aiResponseBuilder.Reset()
-
-					if err := chatRequestOperation(); err != nil {
-						fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
-						displayTokens()
-						continue
-					}
-
-				} else {
-					fmt.Println(lipgloss.Red.Render("❌ Context rejected."))
 				}
 			}
 

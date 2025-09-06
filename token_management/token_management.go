@@ -141,7 +141,7 @@ func getModelDetails(providerName string, modelName string) (details, error) {
 	// Unmarshal the JSON data from the embedded file
 	err := json.Unmarshal(embed_data.ModelDetails, &models)
 	if err != nil {
-		log.Fatalf("Error unmarshaling JSON: %v", err)
+		log.Printf("Error unmarshaling JSON: %v", err)
 		return details{}, err
 	}
 

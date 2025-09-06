@@ -534,14 +534,16 @@ func (analyzer *CodeAnalyzer) ProcessFile(filePath string, sourceCode []byte) []
 	queries := make(map[string]string)
 	err := json.Unmarshal(query, &queries)
 	if err != nil {
-		log.Fatalf("failed to parse JSON: %v", err)
+		log.Printf("failed to parse JSON: %v", err)
+		return []string{filePath, string(sourceCode)}
 	}
 
 	// Execute each query and capture results
 	for tag, queryStr := range queries {
 		query, err := sitter.NewQuery([]byte(queryStr), lang) // Use the appropriate language
 		if err != nil {
-			log.Fatalf("failed to compile query: %v", err)
+			log.Printf("failed to compile query: %v", err)
+			continue
 		}
 
 		cursor := sitter.NewQueryCursor()
