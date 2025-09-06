@@ -13,4 +13,5 @@ var (
 	Charm      = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
 	CharmB     = lipgloss.NewStyle().Background(lipgloss.Color("#E5E7E9")).Foreground(lipgloss.Color("205")).Bold(true)
 	Gray       = lipgloss.NewStyle().Foreground(lipgloss.Color("#bcbcbc")).Bold(true)
+	Info       = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 )

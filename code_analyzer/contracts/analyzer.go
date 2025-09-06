@@ -13,4 +13,6 @@ type ICodeAnalyzer interface {
 	ExtractCodeChanges(text string) []models.CodeChange
 	ApplyChanges(relativePath, code string) error
 	TryGetInCompletedCodeBlocK(relativePaths string) (string, error)
+	ClearCache() error
+	GetCacheStats() (map[string]interface{}, error)
 }

@@ -17,6 +17,11 @@ make clean
 
 # Install globally
 make install
+
+# Cache management
+codai reset-cache          # Reset project cache with confirmation
+codai reset-cache --stats  # Show cache statistics
+codai reset-cache --force  # Force cache reset without confirmation
 ```
 
 ## Code Style

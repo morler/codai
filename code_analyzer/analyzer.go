@@ -951,3 +951,44 @@ func (analyzer *CodeAnalyzer) generateFileContentByMode(relativePath, content st
 		return analyzer.generateFileContentByMode(relativePath, content, codeParts, "info")
 	}
 }
+
+// ClearCache clears the cache manager
+func (analyzer *CodeAnalyzer) ClearCache() error {
+	if analyzer.cacheManager != nil {
+		return analyzer.cacheManager.ClearCache()
+	}
+	return nil
+}
+
+// GetCacheStats returns cache statistics if cache is enabled
+func (analyzer *CodeAnalyzer) GetCacheStats() (map[string]interface{}, error) {
+	if analyzer.cacheManager != nil {
+		// Get basic cache stats
+		stats, err := analyzer.cacheManager.GetCacheStats()
+		if err != nil {
+			return nil, err
+		}
+		
+		// Add detailed stats if available
+		if detailedStats, err := analyzer.cacheManager.GetDetailedCacheStats(); err == nil {
+			for k, v := range detailedStats {
+				stats[k] = v
+			}
+		}
+		
+		// Add performance stats
+		if perfStats := analyzer.cacheManager.GetPerformanceStats(); len(perfStats) > 0 {
+			stats["performance"] = perfStats
+		}
+		
+		stats["cache_enabled"] = true
+		stats["cache_dir"] = analyzer.cacheManager.fileCache.cacheDir
+		
+		return stats, nil
+	}
+	
+	// Return empty stats if cache is disabled
+	return map[string]interface{}{
+		"cache_enabled": false,
+	}, nil
+}

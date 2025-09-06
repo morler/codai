@@ -604,19 +604,31 @@ func (cm *CacheManager) ClearCache() error {
 
 	files, err := ioutil.ReadDir(cm.fileCache.cacheDir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Cache directory doesn't exist, nothing to clear
+			return nil
+		}
 		return fmt.Errorf("failed to read cache directory: %w", err)
 	}
 
 	var deletedCount int
+	var lastError error
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
 
 		cachePath := filepath.Join(cm.fileCache.cacheDir, file.Name())
-		if err := os.Remove(cachePath); err == nil {
+		if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
+			lastError = err // Continue deleting other files, but remember the last error
+		} else if err == nil || os.IsNotExist(err) {
 			deletedCount++
 		}
+	}
+
+	// Return the last error encountered, or nil if all deletions were successful
+	if lastError != nil {
+		return fmt.Errorf("failed to remove %d cache files: %w", len(files)-deletedCount, lastError)
 	}
 
 	return nil
