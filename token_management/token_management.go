@@ -59,6 +59,17 @@ func (tm *tokenManager) DisplayTokens(chatProviderName string, chatModel string)
 	fmt.Println(tokenBox)
 }
 
+func (tm *tokenManager) DisplayLiveTokens(chatProviderName string, chatModel string) {
+	cost := tm.CalculateCost(chatProviderName, chatModel, tm.usedInputToken, tm.usedOutputToken)
+	
+	// 使用\r清除当前行并重新打印，实现实时更新效果
+	fmt.Printf("\rToken Used: %d - Cost: $%.6f - Model: %s", tm.usedToken, cost, chatModel)
+}
+
+func (tm *tokenManager) GetCurrentTokenUsage() (total int, input int, output int) {
+	return tm.usedToken, tm.usedInputToken, tm.usedOutputToken
+}
+
 func (tm *tokenManager) ClearToken() {
 	tm.usedToken = 0
 	tm.usedInputToken = 0

@@ -77,6 +77,10 @@ startLoop: // Label for the start loop
 			displayTokens := func() {
 				rootDependencies.TokenManagement.DisplayTokens(rootDependencies.Config.AIProviderConfig.Provider, rootDependencies.Config.AIProviderConfig.Model)
 			}
+			
+			displayLiveTokens := func() {
+				rootDependencies.TokenManagement.DisplayLiveTokens(rootDependencies.Config.AIProviderConfig.Provider, rootDependencies.Config.AIProviderConfig.Model)
+			}
 
 			// Get user input
 			userInput, err := utils.InputPrompt(reader)
@@ -111,6 +115,11 @@ startLoop: // Label for the start loop
 				// Step 7: Send the relevant code and user input to the AI API
 				responseChan := rootDependencies.CurrentChatProvider.ChatCompletionRequest(ctx, userInputPrompt, finalPrompt)
 
+				// 显示开始时的token状态
+				fmt.Print("\n")
+				displayLiveTokens()
+				fmt.Print("\n")
+				
 				// Iterate over response channel to handle streamed data or errors.
 				for response := range responseChan {
 					if response.Err != nil {
@@ -119,6 +128,10 @@ startLoop: // Label for the start loop
 
 					if response.Done {
 						rootDependencies.ChatHistory.AddToHistory(userInput, aiResponseBuilder.String())
+						// 流式响应结束后，显示最终token信息
+						fmt.Print("\n")
+						displayLiveTokens()
+						fmt.Print("\n")
 						return nil
 					}
 
@@ -127,6 +140,12 @@ startLoop: // Label for the start loop
 					language := utils.DetectLanguageFromCodeBlock(response.Content)
 					if err := utils.RenderAndPrintMarkdown(response.Content, language, rootDependencies.Config.Theme); err != nil {
 						return fmt.Errorf("Error rendering markdown: %v", err)
+					}
+					
+					// 每次接收到新内容后更新token显示（如果有token信息更新的话）
+					total, _, _ := rootDependencies.TokenManagement.GetCurrentTokenUsage()
+					if total > 0 {
+						displayLiveTokens()
 					}
 				}
 
@@ -211,7 +230,7 @@ startLoop: // Label for the start loop
 func findCodeSubCommand(command string, rootDependencies *RootDependencies) (bool, bool) {
 	switch command {
 	case ":help":
-		helps := ":clear  Clear screen\n:exit  Exit from codai\n:token  Token information\n:clear-token  Clear token from session\n:clear-history  Clear history of chat from session"
+		helps := ":clear  Clear screen\n:exit  Exit from codai\n:token  Token information\n:live-token  Session token stats with details\n:clear-token  Clear token from session\n:clear-history  Clear history of chat from session"
 		styledHelps := lipgloss.BoxStyle.Render(helps)
 		fmt.Println(styledHelps)
 		return true, false
@@ -225,6 +244,19 @@ func findCodeSubCommand(command string, rootDependencies *RootDependencies) (boo
 			rootDependencies.Config.AIProviderConfig.Provider,
 			rootDependencies.Config.AIProviderConfig.Model,
 		)
+		return true, false
+	case ":live-token":
+		// 显示实时token统计信息 
+		total, input, output := rootDependencies.TokenManagement.GetCurrentTokenUsage()
+		cost := rootDependencies.TokenManagement.CalculateCost(
+			rootDependencies.Config.AIProviderConfig.Provider,
+			rootDependencies.Config.AIProviderConfig.Model,
+			input, output,
+		)
+		fmt.Printf("📊 Session Token Stats:\n")
+		fmt.Printf("   Total: %d tokens (Input: %d, Output: %d)\n", total, input, output)
+		fmt.Printf("   Cost: $%.6f\n", cost)
+		fmt.Printf("   Model: %s\n", rootDependencies.Config.AIProviderConfig.Model)
 		return true, false
 	case ":clear-token":
 		rootDependencies.TokenManagement.ClearToken()

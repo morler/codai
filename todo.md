@@ -398,3 +398,69 @@ git log --oneline -10
 - **维护便利**: 配置文件中的价格更容易理解和修改
 
 ✅ **状态**: 模型成本单位标准化已完成，系统正常工作，所有测试通过！
+
+## 🎯 新任务 - 实时Token消耗更新 ✅ (2025-09-06 完成)
+
+### Token显示实时化优化
+- [x] 分析当前token管理实现机制 ✅ (已完成)
+- [x] 识别token显示时机问题 ✅ (已完成)
+- [x] 扩展ITokenManagement接口支持实时显示 ✅ (已完成)
+- [x] 实现DisplayLiveTokens和GetCurrentTokenUsage方法 ✅ (已完成)
+- [x] 修改主要AI providers支持流式响应中的token更新 ✅ (已完成)
+- [x] 在cmd/code.go中集成实时token显示逻辑 ✅ (已完成)
+- [x] 添加:live-token子命令支持详细token统计 ✅ (已完成)
+
+### 🔧 技术实现详情
+
+#### 接口扩展
+- **文件**: `token_management/contracts/token_management.go`
+- **新增方法**:
+  - `DisplayLiveTokens(chatProviderName string, chatModel string)`: 实时显示token消耗
+  - `GetCurrentTokenUsage() (total int, input int, output int)`: 获取当前token使用情况
+
+#### 实时更新实现
+- **文件**: `token_management/token_management.go`
+- **DisplayLiveTokens**: 使用`\r`清除当前行并重新打印，实现实时更新效果
+- **GetCurrentTokenUsage**: 返回当前session的token统计数据
+
+#### Providers优化
+- **OpenAI Provider** (`providers/openai/openai_provider.go:166`):
+  - 在流式响应中实时更新token信息，而非仅在结束时更新
+- **Anthropic Provider** (`providers/anthropic/anthropic_provider.go:157`):
+  - 同样在message_delta事件中实时更新token统计
+
+#### 用户界面增强
+- **cmd/code.go**:
+  - 新增`displayLiveTokens`函数用于实时显示
+  - 在流式响应开始和结束时显示token状态
+  - 流式响应过程中检测token变更并实时更新
+  - 新增`:live-token`子命令显示详细session统计
+
+#### 新功能命令
+```bash
+:live-token    # 显示详细的session token统计
+📊 Session Token Stats:
+   Total: 1500 tokens (Input: 1000, Output: 500)
+   Cost: $0.007500
+   Model: gpt-4o
+```
+
+### 🐛 解决的核心问题
+1. **Token统计延迟**: 原来只在对话完成后才显示，现在实时更新
+2. **用户体验差**: 长对话过程中无法监控token消耗，现在可以实时查看
+3. **缺乏细节**: 原来只显示总计，现在可以查看输入/输出分别统计
+4. **流式响应期间无反馈**: 现在会在响应开始和过程中显示token状态
+
+### 📊 实现效果
+- **实时反馈**: 流式AI响应过程中token消耗实时可见
+- **详细统计**: 支持输入/输出token分别统计
+- **交互增强**: 新增`:live-token`命令随时查看session状态
+- **用户体验**: 显著改善token消耗监控和预算控制
+
+### 🎯 技术亮点
+- **非阻塞更新**: 使用`\r`实现不影响输出的实时更新
+- **流式集成**: 与AI providers的流式响应机制无缝集成
+- **向后兼容**: 保持原有DisplayTokens功能不变
+- **线程安全**: token统计操作保持原有的线程安全特性
+
+✅ **状态**: 实时Token消耗更新功能已完成，用户可以在AI对话过程中实时监控token使用情况！

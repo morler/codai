@@ -153,6 +153,8 @@ func (anthropicProvider *AnthropicConfig) ChatCompletionRequest(ctx context.Cont
 				case "message_delta":
 					if response.Usage != nil {
 						usage = *response.Usage // Capture usage details
+						// 在流式响应中实时更新token信息
+						anthropicProvider.TokenManagement.UsedTokens(usage.InputTokens, usage.OutputTokens)
 					}
 				case "message_stop":
 					responseChan <- general_models.StreamResponse{Content: markdownBuffer.String(), Done: true}
