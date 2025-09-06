@@ -91,6 +91,7 @@ Codai is a Go-based AI coding assistant CLI tool that provides intelligent code 
 export API_KEY="your_api_key"
 export PROVIDER="openai"
 export MODEL="gpt-4o"
+export FILE_DISPLAY_MODE="info"  # Optional: controls file display mode
 ```
 
 **Config File (codai-config.yml):**
@@ -102,6 +103,7 @@ ai_provider_config:
   api_version: "2024-04-01-preview"
   temperature: 0.2
 theme: "dracula"
+file_display_mode: "info"  # Controls how files are displayed: "info", "relevant", "full"
 ```
 
 ## 🧪 Testing
@@ -173,6 +175,25 @@ Codai implements an intelligent caching system to improve performance for repeat
 - Session-based conversation history
 - Token usage tracking
 - Syntax-aware code processing
+
+### 📄 File Display Modes
+
+Codai now supports three file display modes to control how files are presented in the AI context:
+
+- **Info Mode** (`info`): Default mode that shows only file directory, filename, line count, and size information
+- **Relevant Mode** (`relevant`): Shows file metadata plus relevant code parts (tree-sitter parsed content or first 50 lines for unsupported files)
+- **Full Mode** (`full`): Shows complete file content (original behavior)
+
+**Configuration:**
+- Set via config file: `file_display_mode: "info"`
+- Set via environment: `export FILE_DISPLAY_MODE="info"`
+- Set via CLI flag: `--file_display_mode info`
+
+**Runtime Commands:**
+- `:display-mode` - Show current display mode and available options
+- `:set-display-mode info` - Switch to info mode (file info only)
+- `:set-display-mode relevant` - Switch to relevant mode (parsed content)
+- `:set-display-mode full` - Switch to full mode (complete content)
 
 ## ⚠️ Known Issues
 

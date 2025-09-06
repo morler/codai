@@ -53,8 +53,8 @@ func handleCodeCommand(rootDependencies *RootDependencies) {
 
 	spinnerLoadContext, _ := spinner.Start("Loading Context...")
 
-	// Get all data files from the root directory
-	fullContext, err := rootDependencies.Analyzer.GetProjectFiles(rootDependencies.Cwd)
+	// Get all data files from the root directory using configured display mode
+	fullContext, err := rootDependencies.Analyzer.GetProjectFilesWithDisplayMode(rootDependencies.Cwd, rootDependencies.Config.FileDisplayMode)
 
 	if err != nil {
 		spinnerLoadContext.Stop()
@@ -270,7 +270,7 @@ startLoop: // Label for the start loop
 func findCodeSubCommand(command string, rootDependencies *RootDependencies) (bool, bool) {
 	switch command {
 	case ":help":
-		helps := ":clear  Clear screen\n:exit  Exit from codai\n:token  Token information\n:live-token  Session token stats with details\n:clear-token  Clear token from session\n:clear-history  Clear history of chat from session"
+		helps := ":clear  Clear screen\n:exit  Exit from codai\n:token  Token information\n:live-token  Session token stats with details\n:clear-token  Clear token from session\n:clear-history  Clear history of chat from session\n:display-mode  Show current file display mode\n:set-display-mode <mode>  Set file display mode (info/relevant/full)"
 		styledHelps := lipgloss.BoxStyle.Render(helps)
 		fmt.Println(styledHelps)
 		return true, false
@@ -304,7 +304,32 @@ func findCodeSubCommand(command string, rootDependencies *RootDependencies) (boo
 	case ":clear-history":
 		rootDependencies.ChatHistory.ClearHistory()
 		return true, false
+	case ":display-mode":
+		fmt.Printf("Current file display mode: %s\n", rootDependencies.Config.FileDisplayMode)
+		fmt.Println("Available modes:")
+		fmt.Println("  info     - Show only file directory, name, and line count")
+		fmt.Println("  relevant - Show relevant code parts (parsed or first 50 lines)")
+		fmt.Println("  full     - Show complete file content")
+		return true, false
 	default:
+		// Handle set-display-mode command
+		if strings.HasPrefix(command, ":set-display-mode ") {
+			parts := strings.Split(command, " ")
+			if len(parts) >= 2 {
+				mode := strings.TrimSpace(parts[1])
+				if mode == "info" || mode == "relevant" || mode == "full" {
+					rootDependencies.Config.FileDisplayMode = mode
+					fmt.Printf("File display mode set to: %s\n", mode)
+					fmt.Println("Note: Changes will take effect for new context loading.")
+				} else {
+					fmt.Println("Invalid display mode. Use 'info', 'relevant', or 'full'.")
+				}
+			} else {
+				fmt.Println("Usage: :set-display-mode <mode>")
+				fmt.Println("Available modes: info, relevant, full")
+			}
+			return true, false
+		}
 		return false, false
 	}
 }

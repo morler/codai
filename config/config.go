@@ -28,13 +28,15 @@ var (
 type Config struct {
 	Version          string                      `mapstructure:"version"`
 	Theme            string                      `mapstructure:"theme"`
+	FileDisplayMode  string                      `mapstructure:"file_display_mode"`
 	AIProviderConfig *providers.AIProviderConfig `mapstructure:"ai_provider_config"`
 }
 
 // DefaultConfig values
 var DefaultConfig = Config{
-	Version: "1.8.4",
-	Theme:   "dracula",
+	Version:         "1.8.4",
+	Theme:           "dracula",
+	FileDisplayMode: "info",
 	AIProviderConfig: &providers.AIProviderConfig{
 		Provider:        "openai",
 		BaseURL:         "https://api.openai.com/v1",
@@ -109,6 +111,7 @@ func LoadConfigs(rootCmd *cobra.Command, cwd string) *Config {
 func setDefaults() {
 	viper.SetDefault("version", DefaultConfig.Version)
 	viper.SetDefault("theme", DefaultConfig.Theme)
+	viper.SetDefault("file_display_mode", DefaultConfig.FileDisplayMode)
 	viper.SetDefault("ai_provider_config.provider", DefaultConfig.AIProviderConfig.Provider)
 	viper.SetDefault("ai_provider_config.base_url", DefaultConfig.AIProviderConfig.BaseURL)
 	viper.SetDefault("ai_provider_config.model", DefaultConfig.AIProviderConfig.Model)
@@ -123,6 +126,7 @@ func setDefaults() {
 // bindEnv explicitly binds environment variables to configuration keys
 func bindEnv() {
 	_ = viper.BindEnv("theme", "THEME")
+	_ = viper.BindEnv("file_display_mode", "FILE_DISPLAY_MODE")
 	_ = viper.BindEnv("ai_provider_config.provider", "PROVIDER")
 	_ = viper.BindEnv("ai_provider_config.base_url", "BASE_URL")
 	_ = viper.BindEnv("ai_provider_config.model", "MODEL")
@@ -135,6 +139,7 @@ func bindEnv() {
 // bindFlags binds the CLI flags to configuration values.
 func bindFlags(rootCmd *cobra.Command) {
 	_ = viper.BindPFlag("theme", rootCmd.PersistentFlags().Lookup("theme"))
+	_ = viper.BindPFlag("file_display_mode", rootCmd.PersistentFlags().Lookup("file_display_mode"))
 	_ = viper.BindPFlag("ai_provider_config.provider", rootCmd.PersistentFlags().Lookup("provider"))
 	_ = viper.BindPFlag("ai_provider_config.base_url", rootCmd.PersistentFlags().Lookup("base_url"))
 	_ = viper.BindPFlag("ai_provider_config.model", rootCmd.PersistentFlags().Lookup("model"))
@@ -151,6 +156,9 @@ func InitFlags(rootCmd *cobra.Command) {
 
 	// Theme configuration
 	rootCmd.PersistentFlags().String("theme", DefaultConfig.Theme, "Set customize theme for buffering response from ai. (e.g., 'dracula', 'light', 'dark')")
+	
+	// File display mode configuration
+	rootCmd.PersistentFlags().String("file_display_mode", DefaultConfig.FileDisplayMode, "Set file display mode: 'info' (file info only), 'relevant' (relevant code parts), 'full' (complete file content)")
 
 	// Version flag
 	rootCmd.Flags().BoolP("version", "v", false, "Specifies the version of the application.")

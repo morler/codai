@@ -67,10 +67,14 @@ func NewCodeAnalyzer(cwd string) contracts.ICodeAnalyzer {
 }
 
 func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullContextData, error) {
+	return analyzer.GetProjectFilesWithDisplayMode(rootDir, "full")
+}
+
+func (analyzer *CodeAnalyzer) GetProjectFilesWithDisplayMode(rootDir string, displayMode string) (*models.FullContextData, error) {
 	// Check cache first if cache manager is available
 	if analyzer.cacheManager != nil {
-		// Generate cache key based on root directory
-		projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+		// Generate cache key based on root directory and display mode
+		projectCacheKey := fmt.Sprintf("%s_project_scan_%s", rootDir, displayMode)
 		if cachedData, found := analyzer.cacheManager.GetConfigCache(projectCacheKey); found {
 			return cachedData, nil
 		}
@@ -164,16 +168,9 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 			// Append the file data to the result
 			result.FileData = append(result.FileData, models.FileData{RelativePath: relativePath, Code: string(content), TreeSitterCode: strings.Join(codeParts, "\n")})
 
-			// For RawCodes, use the original content if tree-sitter parsing didn't produce meaningful results
-			// Check if codeParts only contains filename and first line (indicating unsupported file type)
-			language := utils.GetSupportedLanguage(relativePath)
-			if language == "" || (len(codeParts) == 2 && codeParts[0] == relativePath) {
-				// Use original file content for unsupported files
-				result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, string(content)))
-			} else {
-				// Use tree-sitter parsed content for supported files
-				result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, strings.Join(codeParts, "\n")))
-			}
+			// Generate file content based on display mode
+			fileContent := analyzer.generateFileContentByMode(relativePath, string(content), codeParts, displayMode)
+			result.RawCodes = append(result.RawCodes, fileContent)
 		}
 
 		return nil
@@ -185,7 +182,7 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 
 	// Cache the complete project scan results
 	if analyzer.cacheManager != nil {
-		projectCacheKey := fmt.Sprintf("%s_project_scan", rootDir)
+		projectCacheKey := fmt.Sprintf("%s_project_scan_%s", rootDir, displayMode)
 		analyzer.cacheManager.SetConfigCache(projectCacheKey, &result)
 	}
 
@@ -870,4 +867,62 @@ func (analyzer *CodeAnalyzer) extractZigStructure(sourceCode string) string {
 	}
 
 	return strings.Join(elements, "\n")
+}
+
+// generateFileContentByMode generates file content based on the specified display mode
+func (analyzer *CodeAnalyzer) generateFileContentByMode(relativePath, content string, codeParts []string, displayMode string) string {
+	fileInfo, err := os.Stat(filepath.Join(analyzer.Cwd, relativePath))
+	var fileSize int64 = 0
+	var lineCount int = 0
+	
+	if err == nil {
+		fileSize = fileInfo.Size()
+	}
+	
+	if content != "" {
+		lineCount = strings.Count(content, "\n") + 1
+	}
+
+	switch displayMode {
+	case "info":
+		// Only show file directory, name, and line count
+		dir := filepath.Dir(relativePath)
+		filename := filepath.Base(relativePath)
+		return fmt.Sprintf("**File: %s**\n📁 Directory: %s\n📄 Filename: %s\n📊 Lines: %d\n💾 Size: %d bytes", 
+			relativePath, dir, filename, lineCount, fileSize)
+		
+	case "relevant":
+		// Show relevant code parts (tree-sitter parsed content or first 50 lines)
+		language := utils.GetSupportedLanguage(relativePath)
+		if language != "" && len(codeParts) > 2 {
+			// Use tree-sitter parsed content for supported files
+			return fmt.Sprintf("**File: %s**\n📊 Lines: %d | 💾 Size: %d bytes\n\n%s", 
+				relativePath, lineCount, fileSize, strings.Join(codeParts, "\n"))
+		} else {
+			// For unsupported files, show first 50 lines as relevant content
+			lines := strings.Split(content, "\n")
+			if len(lines) > 50 {
+				relevantContent := strings.Join(lines[:50], "\n") + "\n... (truncated)"
+				return fmt.Sprintf("**File: %s**\n📊 Lines: %d | 💾 Size: %d bytes\n\n%s", 
+					relativePath, lineCount, fileSize, relevantContent)
+			}
+			return fmt.Sprintf("**File: %s**\n📊 Lines: %d | 💾 Size: %d bytes\n\n%s", 
+				relativePath, lineCount, fileSize, content)
+		}
+		
+	case "full":
+		// Show complete file content (original behavior)
+		language := utils.GetSupportedLanguage(relativePath)
+		if language == "" || (len(codeParts) == 2 && codeParts[0] == relativePath) {
+			// Use original file content for unsupported files
+			return fmt.Sprintf("**File: %s**\n\n%s", relativePath, content)
+		} else {
+			// Use tree-sitter parsed content for supported files
+			return fmt.Sprintf("**File: %s**\n\n%s", relativePath, strings.Join(codeParts, "\n"))
+		}
+		
+	default:
+		// Default to info mode
+		return analyzer.generateFileContentByMode(relativePath, content, codeParts, "info")
+	}
 }

@@ -62,7 +62,7 @@ func handleRootCommand(cmd *cobra.Command) *RootDependencies {
 		return nil
 	}
 
-	rootDependencies.Config = config.LoadConfigs(cmd, rootDependencies.Cwd)
+	rootDependencies.Config = config.LoadConfigWithCache(cmd, rootDependencies.Cwd)
 
 	rootDependencies.TokenManagement = token_management.NewTokenManager()
 

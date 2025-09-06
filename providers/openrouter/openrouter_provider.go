@@ -59,6 +59,7 @@ func (openRouterProvider *OpenRouterConfig) ChatCompletionRequest(ctx context.Co
 	responseChan := make(chan general_models.StreamResponse)
 	var markdownBuffer strings.Builder // Buffer to accumulate content until newline
 	var usage models.Usage             // Variable to hold usage data
+	var tokensCounted bool             // Flag to prevent duplicate token counting
 
 	go func() {
 		defer close(responseChan)
@@ -151,6 +152,10 @@ func (openRouterProvider *OpenRouterConfig) ChatCompletionRequest(ctx context.Co
 				// Check if the response has usage information
 				if response.Usage.TotalTokens > 0 {
 					usage = response.Usage // Capture the usage data for later use
+				} else if response.Usage.PromptTokens > 0 || response.Usage.CompletionTokens > 0 {
+					// Some providers might not set TotalTokens but have individual values
+					usage = response.Usage
+					usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 				}
 
 				// Accumulate and send response content
@@ -172,8 +177,9 @@ func (openRouterProvider *OpenRouterConfig) ChatCompletionRequest(ctx context.Co
 						responseChan <- general_models.StreamResponse{Done: true}
 
 						// Count total tokens usage
-						if usage.TotalTokens > 0 {
+						if usage.TotalTokens > 0 && !tokensCounted {
 							openRouterProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+							tokensCounted = true
 							// 显示本次使用的token统计
 							fmt.Print("\n")
 							openRouterProvider.TokenManagement.DisplayTokenUsage(
@@ -193,6 +199,23 @@ func (openRouterProvider *OpenRouterConfig) ChatCompletionRequest(ctx context.Co
 		// Send any remaining content in the buffer
 		if markdownBuffer.Len() > 0 {
 			responseChan <- general_models.StreamResponse{Content: markdownBuffer.String()}
+		}
+
+		// Ensure token usage is recorded even if we didn't get a "stop" finish reason
+		if !tokensCounted && (usage.TotalTokens > 0 || (usage.PromptTokens > 0 && usage.CompletionTokens > 0)) {
+			// Ensure TotalTokens is set
+			if usage.TotalTokens == 0 {
+				usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+			}
+			openRouterProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+			// 显示本次使用的token统计
+			fmt.Print("\n")
+			openRouterProvider.TokenManagement.DisplayTokenUsage(
+				"openrouter",
+				openRouterProvider.Model,
+				usage.PromptTokens,
+				usage.CompletionTokens,
+			)
 		}
 	}()
 
