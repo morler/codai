@@ -190,10 +190,10 @@ Codai now supports three file display modes to control how files are presented i
 - Set via CLI flag: `--file_display_mode info`
 
 **Runtime Commands:**
-- `:display-mode` - Show current display mode and available options
-- `:set-display-mode info` - Switch to info mode (file info only)
-- `:set-display-mode relevant` - Switch to relevant mode (parsed content)
-- `:set-display-mode full` - Switch to full mode (complete content)
+- `/display-mode` - Show current display mode and available options
+- `/set-display-mode info` - Switch to info mode (file info only)
+- `/set-display-mode relevant` - Switch to relevant mode (parsed content)
+- `/set-display-mode full` - Switch to full mode (complete content)
 
 ## ⚠️ Known Issues
 

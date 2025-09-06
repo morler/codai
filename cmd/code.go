@@ -48,7 +48,7 @@ func handleCodeCommand(rootDependencies *RootDependencies) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	codeOptionsBox := lipgloss.BoxStyle.Render(":help  Help for code subcommand")
+	codeOptionsBox := lipgloss.BoxStyle.Render("/help  Help for code subcommand")
 	fmt.Println(codeOptionsBox)
 
 	spinnerLoadContext, _ := spinner.Start("Loading Context...")
@@ -269,23 +269,23 @@ startLoop: // Label for the start loop
 
 func findCodeSubCommand(command string, rootDependencies *RootDependencies) (bool, bool) {
 	switch command {
-	case ":help":
-		helps := ":clear  Clear screen\n:exit  Exit from codai\n:token  Token information\n:live-token  Session token stats with details\n:clear-token  Clear token from session\n:clear-history  Clear history of chat from session\n:display-mode  Show current file display mode\n:set-display-mode <mode>  Set file display mode (info/relevant/full)"
+	case "/help":
+		helps := "/clear  Clear screen\n/exit  Exit from codai\n/token  Token information\n/live-token  Session token stats with details\n/clear-token  Clear token from session\n/clear-history  Clear history of chat from session\n/display-mode  Show current file display mode\n/set-display-mode <mode>  Set file display mode (info/relevant/full)"
 		styledHelps := lipgloss.BoxStyle.Render(helps)
 		fmt.Println(styledHelps)
 		return true, false
-	case ":clear":
+	case "/clear":
 		fmt.Print("\033[2J\033[H")
 		return true, false
-	case ":exit":
+	case "/exit":
 		return false, true
-	case ":token":
+	case "/token":
 		rootDependencies.TokenManagement.DisplayTokens(
 			rootDependencies.Config.AIProviderConfig.Provider,
 			rootDependencies.Config.AIProviderConfig.Model,
 		)
 		return true, false
-	case ":live-token":
+	case "/live-token":
 		// 显示实时token统计信息 
 		total, input, output := rootDependencies.TokenManagement.GetCurrentTokenUsage()
 		cost := rootDependencies.TokenManagement.CalculateCost(
@@ -298,13 +298,13 @@ func findCodeSubCommand(command string, rootDependencies *RootDependencies) (boo
 		fmt.Printf("   Cost: $%.6f\n", cost)
 		fmt.Printf("   Model: %s\n", rootDependencies.Config.AIProviderConfig.Model)
 		return true, false
-	case ":clear-token":
+	case "/clear-token":
 		rootDependencies.TokenManagement.ClearToken()
 		return true, false
-	case ":clear-history":
+	case "/clear-history":
 		rootDependencies.ChatHistory.ClearHistory()
 		return true, false
-	case ":display-mode":
+	case "/display-mode":
 		fmt.Printf("Current file display mode: %s\n", rootDependencies.Config.FileDisplayMode)
 		fmt.Println("Available modes:")
 		fmt.Println("  info     - Show only file directory, name, and line count")
@@ -313,7 +313,7 @@ func findCodeSubCommand(command string, rootDependencies *RootDependencies) (boo
 		return true, false
 	default:
 		// Handle set-display-mode command
-		if strings.HasPrefix(command, ":set-display-mode ") {
+		if strings.HasPrefix(command, "/set-display-mode ") {
 			parts := strings.Split(command, " ")
 			if len(parts) >= 2 {
 				mode := strings.TrimSpace(parts[1])
@@ -325,7 +325,7 @@ func findCodeSubCommand(command string, rootDependencies *RootDependencies) (boo
 					fmt.Println("Invalid display mode. Use 'info', 'relevant', or 'full'.")
 				}
 			} else {
-				fmt.Println("Usage: :set-display-mode <mode>")
+				fmt.Println("Usage: /set-display-mode <mode>")
 				fmt.Println("Available modes: info, relevant, full")
 			}
 			return true, false
