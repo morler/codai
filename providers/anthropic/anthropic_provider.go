@@ -159,6 +159,14 @@ func (anthropicProvider *AnthropicConfig) ChatCompletionRequest(ctx context.Cont
 					responseChan <- general_models.StreamResponse{Content: markdownBuffer.String(), Done: true}
 					if usage.TotalTokens > 0 {
 						anthropicProvider.TokenManagement.UsedTokens(usage.InputTokens, usage.OutputTokens)
+						// 显示本次使用的token统计
+						fmt.Print("\n")
+						anthropicProvider.TokenManagement.DisplayTokenUsage(
+							"anthropic",
+							anthropicProvider.Model,
+							usage.InputTokens,
+							usage.OutputTokens,
+						)
 					}
 					return
 				}

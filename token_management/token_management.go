@@ -77,6 +77,26 @@ func (tm *tokenManager) DisplayLiveTokensWithPreview(chatProviderName string, ch
 	fmt.Printf("\rToken Used: %d - Cost: $%.6f - Model: %s", totalTokens, cost, chatModel)
 }
 
+// DisplayTokenUsage shows token usage with additional context about the request
+func (tm *tokenManager) DisplayTokenUsage(chatProviderName string, chatModel string, addedInputTokens int, addedOutputTokens int) {
+	oldTotal := tm.usedToken
+	oldInput := tm.usedInputToken
+	oldOutput := tm.usedOutputToken
+	oldCost := tm.CalculateCost(chatProviderName, chatModel, oldInput, oldOutput)
+	
+	// 计算新增cost
+	newCost := tm.CalculateCost(chatProviderName, chatModel, oldInput+addedInputTokens, oldOutput+addedOutputTokens)
+	
+	if oldTotal > 0 && addedInputTokens+addedOutputTokens > 0 {
+		fmt.Printf("\r[Tokens: +%d input / +%d output = +%d total]  ", 
+			addedInputTokens, addedOutputTokens, addedInputTokens+addedOutputTokens)
+		if newCost > oldCost {
+			fmt.Printf("[Cost: +$%.6f]  ", newCost-oldCost)
+		}
+		fmt.Print("\n")
+	}
+}
+
 func (tm *tokenManager) GetCurrentTokenUsage() (total int, input int, output int) {
 	return tm.usedToken, tm.usedInputToken, tm.usedOutputToken
 }

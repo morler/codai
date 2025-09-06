@@ -131,6 +131,14 @@ func (geminiProvider *GeminiConfig) ChatCompletionRequest(ctx context.Context, u
 				fullResponse.UsageMetadata.PromptTokenCount,
 				fullResponse.UsageMetadata.CandidatesTokenCount,
 			)
+			// 显示本次使用的token统计
+			fmt.Print("\n")
+			geminiProvider.TokenManagement.DisplayTokenUsage(
+				"gemini",
+				geminiProvider.Model,
+				fullResponse.UsageMetadata.PromptTokenCount,
+				fullResponse.UsageMetadata.CandidatesTokenCount,
+			)
 		}
 
 		responseChan <- models.StreamResponse{Done: true}

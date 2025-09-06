@@ -150,6 +150,14 @@ func (grokProvider *GrokConfig) ChatCompletionRequest(ctx context.Context, userI
 		responseChan <- models.StreamResponse{Done: true}
 		if usage.TotalTokens > 0 {
 			grokProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+			// 显示本次使用的token统计
+			fmt.Print("\n")
+			grokProvider.TokenManagement.DisplayTokenUsage(
+				"grok",
+				grokProvider.Model,
+				usage.PromptTokens,
+				usage.CompletionTokens,
+			)
 		}
 	}()
 

@@ -6,6 +6,7 @@ type ITokenManagement interface {
 	DisplayTokens(chatProviderName string, chatModel string)
 	DisplayLiveTokens(chatProviderName string, chatModel string)
 	DisplayLiveTokensWithPreview(chatProviderName string, chatModel string, previewInput int, previewOutput int)
+	DisplayTokenUsage(chatProviderName string, chatModel string, addedInputTokens int, addedOutputTokens int)
 	GetCurrentTokenUsage() (total int, input int, output int)
 	ClearToken()
 }

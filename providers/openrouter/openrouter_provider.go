@@ -174,6 +174,14 @@ func (openRouterProvider *OpenRouterConfig) ChatCompletionRequest(ctx context.Co
 						// Count total tokens usage
 						if usage.TotalTokens > 0 {
 							openRouterProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+							// 显示本次使用的token统计
+							fmt.Print("\n")
+							openRouterProvider.TokenManagement.DisplayTokenUsage(
+								"openrouter",
+								openRouterProvider.Model,
+								usage.PromptTokens,
+								usage.CompletionTokens,
+							)
 						}
 
 						break

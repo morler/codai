@@ -136,6 +136,14 @@ func (deepSeekProvider *DeepSeekConfig) ChatCompletionRequest(ctx context.Contex
 					// Count total tokens usage
 					if usage.TotalTokens > 0 {
 						deepSeekProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+						// 显示本次使用的token统计
+						fmt.Print("\n")
+						deepSeekProvider.TokenManagement.DisplayTokenUsage(
+							"deepseek",
+							deepSeekProvider.Model,
+							usage.PromptTokens,
+							usage.CompletionTokens,
+						)
 					}
 
 					break
@@ -167,6 +175,14 @@ func (deepSeekProvider *DeepSeekConfig) ChatCompletionRequest(ctx context.Contex
 					// Count total tokens usage
 					if usage.TotalTokens > 0 {
 						deepSeekProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+						// 显示本次使用的token统计
+						fmt.Print("\n")
+						deepSeekProvider.TokenManagement.DisplayTokenUsage(
+							"deepseek",
+							deepSeekProvider.Model,
+							usage.PromptTokens,
+							usage.CompletionTokens,
+						)
 					}
 
 					break

@@ -144,6 +144,14 @@ func (openAIProvider *OpenAIConfig) ChatCompletionRequest(ctx context.Context, u
 				// Count total tokens usage
 				if usage.TotalTokens > 0 {
 					openAIProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+					// 显示本次使用的token统计
+					fmt.Print("\n")
+					openAIProvider.TokenManagement.DisplayTokenUsage(
+						"openai",
+						openAIProvider.Model,
+						usage.PromptTokens,
+						usage.CompletionTokens,
+					)
 				}
 
 				break

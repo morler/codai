@@ -147,6 +147,14 @@ func (mistralProvider *MistralConfig) ChatCompletionRequest(ctx context.Context,
 		responseChan <- models.StreamResponse{Done: true}
 		if usage.TotalTokens > 0 {
 			mistralProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
+			// 显示本次使用的token统计
+			fmt.Print("\n")
+			mistralProvider.TokenManagement.DisplayTokenUsage(
+				"mistral",
+				mistralProvider.Model,
+				usage.PromptTokens,
+				usage.CompletionTokens,
+			)
 		}
 	}()
 

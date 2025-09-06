@@ -155,6 +155,14 @@ func (ollamaProvider *OllamaConfig) ChatCompletionRequest(ctx context.Context, u
 				// Count total tokens usage
 				if response.PromptEvalCount > 0 {
 					ollamaProvider.TokenManagement.UsedTokens(response.PromptEvalCount, response.EvalCount)
+					// 显示本次使用的token统计
+					fmt.Print("\n")
+					ollamaProvider.TokenManagement.DisplayTokenUsage(
+						"ollama",
+						ollamaProvider.Model,
+						response.PromptEvalCount,
+						response.EvalCount,
+					)
 				}
 
 				break
