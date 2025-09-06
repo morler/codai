@@ -164,7 +164,16 @@ func (analyzer *CodeAnalyzer) GetProjectFiles(rootDir string) (*models.FullConte
 			// Append the file data to the result
 			result.FileData = append(result.FileData, models.FileData{RelativePath: relativePath, Code: string(content), TreeSitterCode: strings.Join(codeParts, "\n")})
 
-			result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, strings.Join(codeParts, "\n")))
+			// For RawCodes, use the original content if tree-sitter parsing didn't produce meaningful results
+			// Check if codeParts only contains filename and first line (indicating unsupported file type)
+			language := utils.GetSupportedLanguage(relativePath)
+			if language == "" || (len(codeParts) == 2 && codeParts[0] == relativePath) {
+				// Use original file content for unsupported files
+				result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, string(content)))
+			} else {
+				// Use tree-sitter parsed content for supported files
+				result.RawCodes = append(result.RawCodes, fmt.Sprintf("**File: %s**\n\n%s", relativePath, strings.Join(codeParts, "\n")))
+			}
 		}
 
 		return nil
