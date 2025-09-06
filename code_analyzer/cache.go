@@ -2,7 +2,6 @@ package code_analyzer
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/meysamhadeli/codai/code_analyzer/models"
+	"github.com/zeebo/xxh3"
 )
 
 // CacheEntry represents a cached item with metadata
@@ -90,7 +90,7 @@ func NewCacheManager(cacheDir string) (*CacheManager, error) {
 
 // generateCacheKey creates a unique cache key for a file
 func (fc *FileCache) generateCacheKey(filePath string) string {
-	hash := md5.Sum([]byte(filePath))
+	hash := xxh3.HashString(filePath)
 	return fmt.Sprintf("%x.cache", hash)
 }
 
