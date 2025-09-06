@@ -78,10 +78,15 @@ startLoop: // Label for the start loop
 				rootDependencies.TokenManagement.DisplayTokens(rootDependencies.Config.AIProviderConfig.Provider, rootDependencies.Config.AIProviderConfig.Model)
 			}
 
-			// Get user input
-			userInput, err := utils.InputPrompt(reader)
+			// Get user input with context cancellation support
+			userInput, err := utils.InputPromptWithContext(ctx, reader)
 
 			if err != nil {
+				// Check if the error is due to context cancellation (Ctrl+C)
+				if err == context.Canceled {
+					fmt.Println(lipgloss.Yellow.Render("\n🔄 Exiting..."))
+					return
+				}
 				fmt.Println(lipgloss.Red.Render(fmt.Sprintf("%v", err)))
 				continue
 			}
