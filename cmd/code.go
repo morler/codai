@@ -116,7 +116,7 @@ startLoop: // Label for the start loop
 				aiSpinner := pterm.DefaultSpinner.
 					WithStyle(pterm.NewStyle(pterm.FgCyan)).
 					WithSequence("🤔", "🧠", "💭", "✨", "🚀", "💡").
-					WithDelay(200).
+					WithDelay(1000).
 					WithRemoveWhenDone(true)
 				
 				// 根据不同provider显示不同的动画文案
