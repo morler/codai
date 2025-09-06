@@ -41,11 +41,10 @@ func NewTokenManager() contracts.ITokenManagement {
 	}
 }
 
-// UsedTokens deducts the token count from the available tokens.
+// UsedTokens accumulates the token count for the session.
 func (tm *tokenManager) UsedTokens(inputToken int, outputToken int) {
-	tm.usedInputToken = inputToken
-	tm.usedOutputToken = outputToken
-
+	tm.usedInputToken += inputToken
+	tm.usedOutputToken += outputToken
 	tm.usedToken += inputToken + outputToken
 }
 
@@ -64,6 +63,18 @@ func (tm *tokenManager) DisplayLiveTokens(chatProviderName string, chatModel str
 	
 	// 使用\r清除当前行并重新打印，实现实时更新效果
 	fmt.Printf("\rToken Used: %d - Cost: $%.6f - Model: %s", tm.usedToken, cost, chatModel)
+}
+
+func (tm *tokenManager) DisplayLiveTokensWithPreview(chatProviderName string, chatModel string, previewInput int, previewOutput int) {
+	// 显示当前累计的token + 本次预览的token
+	totalInput := tm.usedInputToken + previewInput
+	totalOutput := tm.usedOutputToken + previewOutput
+	totalTokens := tm.usedToken + previewInput + previewOutput
+	
+	cost := tm.CalculateCost(chatProviderName, chatModel, totalInput, totalOutput)
+	
+	// 使用\r清除当前行并重新打印，实现实时更新效果
+	fmt.Printf("\rToken Used: %d - Cost: $%.6f - Model: %s", totalTokens, cost, chatModel)
 }
 
 func (tm *tokenManager) GetCurrentTokenUsage() (total int, input int, output int) {

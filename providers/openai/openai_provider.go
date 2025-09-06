@@ -162,8 +162,6 @@ func (openAIProvider *OpenAIConfig) ChatCompletionRequest(ctx context.Context, u
 				// Check if the response has usage information
 				if response.Usage.TotalTokens > 0 {
 					usage = response.Usage // Capture the usage data for later use
-					// 在流式响应中实时更新token信息
-					openAIProvider.TokenManagement.UsedTokens(usage.PromptTokens, usage.CompletionTokens)
 				}
 
 				// Accumulate and send response content
