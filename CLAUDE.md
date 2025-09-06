@@ -137,7 +137,7 @@ Codai implements an intelligent caching system to improve performance for repeat
 
 **Cache Location:**
 ```
-~/.codai/cache/  # Default cache directory
+./.cache/  # Project root hidden cache directory (changed from ~/.codai/cache/)
 ```
 
 **Cache Features:**

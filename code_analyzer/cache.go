@@ -47,6 +47,7 @@ type CacheManager struct {
 }
 
 // NewCacheManager creates a new cache manager instance
+// If cacheDir is empty, it defaults to "cache" directory in the current working directory
 func NewCacheManager(cacheDir string) (*CacheManager, error) {
 	// Register types for gob encoding/decoding
 	gob.Register(&models.FullContextData{})
@@ -57,11 +58,12 @@ func NewCacheManager(cacheDir string) (*CacheManager, error) {
 	gob.Register(models.FileSnapshot{})
 
 	if cacheDir == "" {
-		homeDir, err := os.UserHomeDir()
+		// Get current working directory
+		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get user home directory: %w", err)
+			return nil, fmt.Errorf("failed to get current working directory: %w", err)
 		}
-		cacheDir = filepath.Join(homeDir, ".codai", "cache")
+		cacheDir = filepath.Join(cwd, ".cache")
 	}
 
 	// Ensure cache directory exists

@@ -89,6 +89,7 @@ func IsDefaultIgnored(path string) bool {
 		"obj",
 		"dist",
 		"out",
+		".cache",
 		"node_modules",
 		"*.exe",
 		"*.dll",
