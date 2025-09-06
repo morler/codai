@@ -77,10 +77,6 @@ startLoop: // Label for the start loop
 			displayTokens := func() {
 				rootDependencies.TokenManagement.DisplayTokens(rootDependencies.Config.AIProviderConfig.Provider, rootDependencies.Config.AIProviderConfig.Model)
 			}
-			
-			displayLiveTokens := func() {
-				rootDependencies.TokenManagement.DisplayLiveTokens(rootDependencies.Config.AIProviderConfig.Provider, rootDependencies.Config.AIProviderConfig.Model)
-			}
 
 			// Get user input
 			userInput, err := utils.InputPrompt(reader)
@@ -164,10 +160,6 @@ startLoop: // Label for the start loop
 							spinnerAI.Stop()
 						}
 						rootDependencies.ChatHistory.AddToHistory(userInput, aiResponseBuilder.String())
-						// 流式响应结束后，显示最终token信息
-						fmt.Print("\n")
-						displayLiveTokens()
-						fmt.Print("\n")
 						return nil
 					}
 
