@@ -512,10 +512,9 @@ func (analyzer *CodeAnalyzer) ProcessFile(filePath string, sourceCode []byte) []
 	default:
 		// If the language doesn't match, process the original source code directly
 		elements = append(elements, filePath)
-
-		lines := strings.Split(string(sourceCode), "\n")
-		// Get the first line
-		elements = append(elements, lines[0]) // Adding First line from the array
+		
+		// Return the complete file content for unsupported file types
+		elements = append(elements, string(sourceCode))
 
 		return elements
 	}
@@ -562,19 +561,38 @@ func (analyzer *CodeAnalyzer) ProcessFile(filePath string, sourceCode []byte) []
 func (analyzer *CodeAnalyzer) TryGetInCompletedCodeBlocK(relativePaths string) (string, error) {
 	var codes []string
 
-	// Simplified regex to capture only the array of files
-	re := regexp.MustCompile(`\[.*?\]`)
-	match := re.FindString(relativePaths)
+	var filePaths []string
 
-	if match == "" {
-		return "", fmt.Errorf("no file paths found in input")
+	// Extract JSON from markdown code blocks if present
+	jsonContent := analyzer.extractJSONFromMarkdown(relativePaths)
+	if jsonContent == "" {
+		jsonContent = relativePaths // Use original if no markdown blocks found
 	}
 
-	// Parse the match into a slice of strings
-	var filePaths []string
-	err := json.Unmarshal([]byte(match), &filePaths)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal JSON: %v", err)
+	// First try to parse as JSON object with "files" key
+	var jsonObj struct {
+		Files []string `json:"files"`
+	}
+	
+	// Handle Windows paths by replacing backslashes in JSON string
+	escapedPaths := strings.ReplaceAll(jsonContent, `\`, `\\`)
+	
+	if err := json.Unmarshal([]byte(escapedPaths), &jsonObj); err == nil && len(jsonObj.Files) > 0 {
+		filePaths = jsonObj.Files
+	} else {
+		// Fallback: try to extract array format using regex
+		re := regexp.MustCompile(`\[.*?\]`)
+		match := re.FindString(jsonContent)
+		
+		if match == "" {
+			return "", fmt.Errorf("no file paths found in input")
+		}
+		
+		// Parse the match into a slice of strings
+		escapedMatch := strings.ReplaceAll(match, `\`, `\\`)
+		if err := json.Unmarshal([]byte(escapedMatch), &filePaths); err != nil {
+			return "", fmt.Errorf("failed to unmarshal JSON: %v", err)
+		}
 	}
 
 	// Loop through each relative path and read the file content
@@ -594,6 +612,30 @@ func (analyzer *CodeAnalyzer) TryGetInCompletedCodeBlocK(relativePaths string) (
 	requestedContext := strings.Join(codes, "\n---------\n\n")
 
 	return requestedContext, nil
+}
+
+// extractJSONFromMarkdown extracts JSON content from markdown code blocks
+func (analyzer *CodeAnalyzer) extractJSONFromMarkdown(text string) string {
+	// Match ```json ... ``` blocks
+	jsonBlockRegex := regexp.MustCompile("(?s)```json\\s*\\n(.+?)\\n```")
+	matches := jsonBlockRegex.FindStringSubmatch(text)
+	if len(matches) > 1 {
+		return strings.TrimSpace(matches[1])
+	}
+
+	// Match ``` ... ``` blocks (without language specification)
+	codeBlockRegex := regexp.MustCompile("(?s)```\\s*\\n(.+?)\\n```")
+	matches = codeBlockRegex.FindStringSubmatch(text)
+	if len(matches) > 1 {
+		content := strings.TrimSpace(matches[1])
+		// Check if it looks like JSON (starts with { or [)
+		trimmed := strings.TrimSpace(content)
+		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+			return content
+		}
+	}
+
+	return "" // No JSON found in markdown blocks
 }
 
 func (analyzer *CodeAnalyzer) ExtractCodeChanges(diff string) []models.CodeChange {
